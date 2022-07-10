@@ -1,0 +1,81 @@
+Design considerations for the project
+
+The project will be initially implemented in Python 3 for fast prototyping
+and development. Later after it stabilizes, consideration will be given to
+translating it to Rust for speed and performance reasons as well as making
+it available for mobile platforms. This consideration will be made towards
+the end of the project based on the specifics at that stage as well as the
+available time for such a conversion.
+
+The RELOAD protocol will be implemented according to the specifications
+from RFC 6940. The protocol will be implemented independent from the
+transport, in order to allow the protocol to be easily attached to all
+the transports supported by the specification. The protocol will be
+implemented using asynchronous frameworks like asyncio or trio to target
+both simplicity of the code and scalability.
+
+Various other protocols are needed in order to make RELOAD work, like
+various transports (TLS, DTLS, ...), ICE, STUN, TURN, etc. In case there
+are suitable implementations for them, they will be used, otherwise
+implementing them or wrapping some C library implementation will be
+considered specifically for each case. This will be considered part of
+the works for implementing the RELOAD protocol.
+
+After the base RELOAD protocol is implemented, the SIP Usage for RELOAD
+protocol described in RFC 7904 will be implemented on top of the RELOAD
+protocol, in order to make the overlay network support P2P-SIP.
+
+After this the various optional components (extensions) mentioned in the
+overview document will be considered according to their relevance and the
+available time.
+
+RELOAD will be available both as a library that can be used by existing
+SIP clients to directly integrate P2P capabilities into the client, or as a
+standalone program that can be used by existing SIP clients with minimal
+changes to their codebase.
+
+In the first case, clients that want to integrate RELOAD capabilities in
+their code, will need to make some extensive changes to their codebase in
+order to join and communicate within the RELOAD overlay. They will need to
+understand the concepts and the operating mode of the overlay in order to
+succesfully modify their code.
+None of the existing SIP client implementations (including Blink) is easy to
+modify in this manner because their SIP stack implementation is unable to
+use an externally established connection to send their SIP messages to the
+other peers through that.
+
+In this mode of operation, the RELOAD overlay will identify the node that
+provides a particular SIP AOR with which the client tries to communicate and
+will establish a connection with that node using specific NAT traversal
+mechanisms. Once this connection is established, the SIP client is supposed
+to use it to send SIP messages to the other client, but this change is
+non-trivial for the codebase of the existing SIP stack implementations,
+requiring extensive changes at the lowest levels of the SIP stack
+implementations.
+
+This mode is available for new clients or new SIP stacks that want to
+implement RELOAD, as it provides the most flexibility and allows the client
+to have full access to the RELOAD overlay functionality.
+
+This mode can also be used by non-SIP clients (like for example by WEBRTC
+clients) that can easily use the connection establised by the RELOAD library
+to send the messages to the other peer.
+
+A second mode of operation is when the RELOAD code is used as a standalone
+program that joins the RELOAD overlay and publishes its presence as a
+peer/client on its own. It will then provide a lookup service which can be
+advertised locally (using Bonjour for example), which can be accessed by
+existing SIP clients to lookup an existing AOR. When a SIP client does a
+lookup, the program will find the peer, but return its own address instead.
+When the SIP client connects to the locally specified address and sends a
+message, the program will act as a proxy and forward the message to the
+remote peer.
+
+This mode of operation is almost transparent for the SIP client, which only
+needs to be modified to support this new AOR lookup mechanism (in addition
+to the standard DNS based lookup) in order to be able to find and
+communicate with peers in the RELOAD overlay. For this reason modifying
+existing SIP clients in this manner is much easier and this will be the
+approach used by this project in order to minimize the amount of work
+needed on the SIP client side.
+

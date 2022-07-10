@@ -1,0 +1,21 @@
+#
+# Boring file regular expressions
+#
+
+~$
+\#
+(^|/)\.DS_Store$
+(^|/)Thumbs\.db$
+(^|/)core(\.[0-9]+)?$
+(^|/).*\.egg-info($|/)
+(^|/)\.mypy_cache($|/)
+(^|/)__pycache__($|/)
+\.(pyc|pyo|o|so|orig|rej|prof|bak|BAK|tmp|wpu)$
+
+(^|/)\.idea($|/)
+(^|/)\.komodotools($|/)
+(^|/)_darcs($|/)
+
+^MANIFEST$
+^build($|/)
+^dist($|/)
