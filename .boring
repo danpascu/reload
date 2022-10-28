@@ -8,6 +8,7 @@
 (^|/)Thumbs\.db$
 (^|/)core(\.[0-9]+)?$
 (^|/).*\.egg-info($|/)
+(^|/)\.coverage($|/)
 (^|/)\.mypy_cache($|/)
 (^|/)\.pytest_cache($|/)
 (^|/)__pycache__($|/)
