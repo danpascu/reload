@@ -21,3 +21,4 @@
 ^MANIFEST$
 ^build($|/)
 ^dist($|/)
+^tests/sandbox($|/)
