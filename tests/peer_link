@@ -1,0 +1,285 @@
+#!/usr/bin/env python
+
+import asyncio
+import aioice
+import ipaddress
+import json
+import logging
+import random
+import ssl
+import trustme
+
+from argparse import ArgumentParser
+from functools import cached_property
+from OpenSSL import SSL
+from time import time
+from typing import cast
+
+from reload import aio, link
+from reload.messages.types import *
+
+
+# dummy overlay configuration for testing
+class Configuration:
+    overlay_id = 1
+    sequence = 17
+    initial_ttl = 100
+
+
+class TestIdentity:
+    def __init__(self):
+        self.authority = trustme.CA()
+        self.certificate = self.authority.issue_cert('test.com')
+
+    @cached_property
+    def __key__(self):
+        return hash(self.certificate.private_key_and_cert_chain_pem.bytes())
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}()'
+
+    def __hash__(self):
+        return hash(self.__key__)
+
+    def __eq__(self, other):
+        if isinstance(other, TestIdentity):
+            return self.__key__ == other.__key__
+        return NotImplemented
+
+    def configure(self, context: SSL.Context):
+        context.set_verify(SSL.VERIFY_NONE)
+        self.authority.configure_trust(context)
+        self.certificate.configure_cert(context)
+
+
+def get_ssl_context(purpose: ssl.Purpose):
+    ctx = ssl.create_default_context(purpose)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    authority = trustme.CA()
+    certificate = authority.issue_cert('test.com')
+    authority.configure_trust(ctx)
+    certificate.configure_cert(ctx)
+    return ctx
+
+
+def encode_ice_peer(connection: link.DTLSEndpoint):
+    ice = connection.ice
+    candidates = [candidate.to_sdp() for candidate in ice.local_candidates]
+    return json.dumps(dict(username=ice.local_username, password=ice.local_password, candidates=candidates)).encode()
+
+
+def decode_ice_peer(data: bytes) -> link.ICEPeer:
+    data = json.loads(data)
+    data['candidates'] = [aioice.Candidate.from_sdp(line) for line in data['candidates']]
+    return link.ICEPeer(**data)
+
+
+def decode_request(message: bytes):
+    offset = 0
+    header = ForwardingHeader.from_wire(message, offset=offset)
+    offset += header.wire_length()
+    contents = MessageContents.from_wire(message, offset=offset)
+    offset += contents.wire_length()
+    security_block = SecurityBlock.from_wire(message, offset=offset)
+    offset += security_block.wire_length()
+    if len(message) > offset:
+        raise ValueError(f'{len(message) - offset} bytes left unprocessed at the end of the message!!!')
+    return header, contents, security_block
+
+
+def make_security_block():
+    signer_identity = SignerIdentity(SignerIdentityType.none, Empty())
+    signature = Signature(SignatureAndHashAlgorithm(HashAlgorithm.sha256, SignatureAlgorithm.rsa), signer_identity, b'')
+    return SecurityBlock(GenericCertificateList(), signature)
+
+
+class TestClient:
+    def __init__(self, host, port=10000):
+        self.host = host
+        self.port = port
+        self.ssl_context = get_ssl_context(ssl.Purpose.SERVER_AUTH)
+        self.identity = cast(link.NodeIdentity, TestIdentity())
+
+    # noinspection DuplicatedCode,PyProtectedMember
+    async def run(self):
+        try:
+            async with aio.timeout(3):
+                reader, writer = await asyncio.open_connection(self.host, self.port, ssl=self.ssl_context, ssl_handshake_timeout=1)
+        except asyncio.TimeoutError:
+            print(f'connection did timeout')
+            return
+        except (OSError, ssl.SSLError) as e:
+            print(f'error connecting: {e}')
+            return
+
+        print(f'connected to {self.host}:{self.port}')
+        print(f'exchanging ICE parameters')
+
+        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self.identity)
+
+        await connection.prepare()
+        writer.write(encode_ice_peer(connection))
+        data = await reader.read(4096)
+        ice_peer = decode_ice_peer(data)
+        await writer.drain()
+        writer.close()
+
+        print(f'initiating ICE probing')
+        await connection.connect(ice_peer)
+
+        print(f'ICE+DTLS connection established')
+
+        await self.exchange_messages(connection)
+
+        await connection.close()
+        print(f'connection closed')
+
+    async def exchange_messages(self, connection: link.DTLSEndpoint):
+        message = self.make_ping_request()
+        print(f'sending Ping request {message!r}')
+        await connection.send(message)
+        message = await connection.receive()
+        print(f'received back: {message!r}')
+        self.process_response(message)
+
+    @staticmethod
+    def make_ping_request():
+        contents = MessageContents.for_message(PingRequest())
+        security_block = make_security_block()
+        target = Destination(DestinationType.resource, ResourceID.for_resource('test'))
+        header = ForwardingHeader.new(Configuration, 0xc000_0000, 0, 1234, via_list=[], destination_list=[target], options=[])
+        header.length = header.wire_length() + contents.wire_length() + security_block.wire_length()
+        return header.to_wire() + contents.to_wire() + security_block.to_wire()
+
+    @staticmethod
+    def process_response(message: bytes):
+        try:
+            header, contents, security_block = decode_request(message)
+            response = Message[contents.code].from_wire(contents.body)
+        except (KeyError, ValueError) as e:
+            print(f'cannot decode message: {e!s}')
+        else:
+            print(f'received {response.__class__.__name__} with {vars(response)}')
+
+
+class TestServer:
+    def __init__(self, host, port=10000):
+        self.host = host
+        self.port = port
+        self.ssl_context = get_ssl_context(ssl.Purpose.CLIENT_AUTH)
+        self.identity = cast(link.NodeIdentity, TestIdentity())
+        # self.ssl_context.sni_callback = self.sni_callback
+
+    async def run(self):
+        server = await asyncio.start_server(self._handler, self.host, self.port, ssl=self.ssl_context)
+
+        port = server.sockets[0].getsockname()[1]
+        print(f'Serving on {self.host or "*"}:{port}')
+
+        async with server:
+            try:
+                await server.serve_forever()
+            except Exception as e:
+                print(e)
+                raise
+
+    # noinspection DuplicatedCode
+    async def _handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        host, port, *_ = writer.get_extra_info('peername')
+        print(f'connection from {host}:{port}')
+        print(f'exchanging ICE parameters')
+
+        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self.identity)
+
+        await connection.prepare()
+        writer.write(encode_ice_peer(connection))
+        data = await reader.read(4096)
+        ice_peer = decode_ice_peer(data)
+        await writer.drain()
+        writer.close()
+
+        print(f'initiating ICE probing')
+        await connection.connect(ice_peer)
+
+        print(f'ICE+DTLS connection established')
+
+        await self.exchange_messages(connection)
+
+        await connection.close()
+        print(f'connection closed')
+
+    async def exchange_messages(self, connection: link.DTLSEndpoint):
+        async for message in connection:
+            print(f'received message: {message!r}')
+            response = self.process_request(message)
+            print(f'sending response {response}')
+            await connection.send(response)
+
+    def process_request(self, message: bytes):
+        try:
+            header, contents, security_block = decode_request(message)
+            request = Message[contents.code].from_wire(contents.body)
+        except (KeyError, ValueError) as e:
+            print(f'cannot decode message: {e!s}')
+            return self.make_error_response(ErrorCode.InvalidMessage)
+        else:
+            if isinstance(request, PingRequest):
+                print(f'returning Ping response')
+                return self.make_response(PingResponse(id=random.getrandbits(64), time=uint64(time() * 1000)))
+            else:
+                return self.make_error_response(ErrorCode.InvalidMessage)
+
+    def make_error_response(self, code: ErrorCode):
+        return self.make_response(ErrorResponse(code))
+
+    @staticmethod
+    def make_response(response: Message):
+        contents = MessageContents.for_message(response)
+        security_block = make_security_block()
+        header = ForwardingHeader.new(Configuration, 0xc000_0000, 0, 1234, via_list=[], destination_list=[], options=[])
+        header.length = header.wire_length() + contents.wire_length() + security_block.wire_length()
+        return header.to_wire() + contents.to_wire() + security_block.to_wire()
+
+    @staticmethod
+    def sni_callback(ssl_object: ssl.SSLObject, server_name: str, ssl_context: ssl.SSLContext):
+        print(f'SNI: {server_name!r} {ssl_context} {ssl_object.server_side}')
+
+
+def run_client(args):
+    client = TestClient(args.address)
+    asyncio.run(client.run(), debug=args.debug)
+
+
+def run_server(args):
+    server = TestServer(args.address)
+    asyncio.run(server.run(), debug=args.debug)
+
+
+# noinspection PyUnresolvedReferences
+def address(value: str) -> str:
+    return str(ipaddress.ip_address(value)) if value else value
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('address', nargs='?', type=address, help='the address to connect to (run as server when not specified)')
+    parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging messages')
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0.0')
+
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
+    aioice.ice.logger.setLevel(logging.DEBUG if args.debug else logging.WARNING)  # shut aioice up
+
+    try:
+        if not args.address:
+            run_server(args)
+        else:
+            run_client(args)
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == '__main__':
+    main()
