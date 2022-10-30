@@ -1,0 +1,42 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "reload"
+readme  = "README.rst"
+authors = [{name = "Dan Pascu", email = "dan@aethereal.link"}]
+license = {file = "LICENSE"}
+classifiers = [
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+requires-python = ">=3.10"
+dynamic = ["version", "description"]
+dependencies = ["aioice", "pyopenssl"]
+
+[project.optional-dependencies]
+test = ["pytest >=6.0", "pytest-cov", "trustme"]
+
+[tool.flit.sdist]
+include = ["docs/", "tests/"]
+exclude = ["tests/sandbox/", "tests/__pycache__/"]
+
+[tool.pytest.ini_options]
+addopts = "-ra -v"
+testpaths = ["tests"]
+norecursedirs = ["sandbox"]
