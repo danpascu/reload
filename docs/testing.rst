@@ -41,3 +41,6 @@ After that, the client will send a RELOAD PingRequest to the server and the
 server will reply with a PingResponse. If it receives anything else or if the
 received message cannot be decoded, the server will send back a RELOAD error
 response instead.
+
+Note: running the peer_link script with the -d option will turn on debugging
+which can show details about ICE negotiation and which candidates are used.
