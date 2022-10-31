@@ -15,3 +15,9 @@ the protocol. RELOAD also allows access from "client" nodes that do not
 need to route traffic or store data for others.
 
 RELOAD is described in RFC 6940. For more details see docs/overview
+
+
+This project was funded through the NGI0 Discovery Fund, a fund established
+by NLnet with financial support from the European Commission's Next
+Generation Internet programme, under the aegis of DG Communications
+Networks, Content and Technology under grant agreement No 825322.
