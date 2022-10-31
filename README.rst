@@ -16,6 +16,8 @@ need to route traffic or store data for others.
 
 RELOAD is described in RFC 6940. For more details see docs/overview
 
+This project also includes a standalone DTLS-over-ICE implementation.
+
 
 This project was funded through the NGI0 Discovery Fund, a fund established
 by NLnet with financial support from the European Commission's Next
