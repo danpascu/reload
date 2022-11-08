@@ -105,7 +105,7 @@ class TestClient:
         self.ssl_context = get_ssl_context(ssl.Purpose.SERVER_AUTH)
         self.identity = cast(link.NodeIdentity, TestIdentity())
 
-    # noinspection DuplicatedCode,PyProtectedMember
+    # noinspection DuplicatedCode
     async def run(self):
         try:
             async with aio.timeout(3):
@@ -260,7 +260,6 @@ def run_server(args):
     asyncio.run(server.run(), debug=args.debug)
 
 
-# noinspection PyUnresolvedReferences
 def address(value: str) -> str:
     return str(ipaddress.ip_address(value)) if value else value
 
