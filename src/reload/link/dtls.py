@@ -31,7 +31,8 @@ MINIMAL_MTU = 576 - 28
 class DTLSConnection(SSL.Connection):
     def bio_pending(self) -> int:
         """
-        Call the OpenSSL function BIO_ctrl_pending on the outgoing BIO.
+        Call the OpenSSL function BIO_get_mem_data with a NULL pointer
+        on the outgoing BIO, to obtain the amount of data in the BIO.
         See the OpenSSL manual for more details.
 
         :return: how many bytes are available to read from the BIO
@@ -39,7 +40,7 @@ class DTLSConnection(SSL.Connection):
         if self._from_ssl is None:
             raise TypeError("Connection sock was not None")
 
-        return _lib.BIO_ctrl_pending(self._from_ssl)
+        return _lib.BIO_get_mem_data(self._from_ssl, _ffi.NULL)
 
     def get_dtls_timeout(self) -> 'float | None':
         """
