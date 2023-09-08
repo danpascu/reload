@@ -29,9 +29,9 @@ class PathAttribute:
 
 @dataclass(frozen=True)
 class NodeIdentity:
-    certificate_file: str = PathAttribute()
-    private_key_file: str = PathAttribute()
-    authority_file:   str = PathAttribute()
+    certificate_file: PathAttribute = PathAttribute()
+    private_key_file: PathAttribute = PathAttribute()
+    authority_file:   PathAttribute = PathAttribute()
 
     def configure(self, context: Context):
         """Configure the SSL context with this object's certificate and authority files"""
