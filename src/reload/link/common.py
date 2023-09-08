@@ -11,19 +11,21 @@ __all__ = 'NodeIdentity',
 
 
 class PathAttribute:
+    name: str | None
+
     def __init__(self):
         self.name = None
 
-    def __set_name__(self, owner, name):
+    def __set_name__(self, owner, name: str):
         assert self.name is None or name == self.name
         self.name = name
 
-    def __get__(self, instance, owner=None):
+    def __get__(self, instance, owner=None) -> str:
         if instance is None:
             raise AttributeError
         return instance.__dict__[self.name]
 
-    def __set__(self, instance, value):
+    def __set__(self, instance, value: str):
         instance.__dict__[self.name] = realpath(expanduser(value))
 
 

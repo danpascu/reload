@@ -14,7 +14,7 @@ from typing import Callable, ClassVar, TypeVar
 
 from OpenSSL import SSL
 # noinspection PyProtectedMember
-from OpenSSL.SSL import _ffi, _lib
+from OpenSSL.SSL import _ffi, _lib  # type: ignore
 
 from reload import aio
 from .common import NodeIdentity
@@ -42,7 +42,7 @@ class DTLSConnection(SSL.Connection):
 
         return _lib.BIO_get_mem_data(self._from_ssl, _ffi.NULL)
 
-    def get_dtls_timeout(self) -> 'float | None':
+    def get_dtls_timeout(self) -> float | None:
         """
         Call the OpenSSL function DTLSv1_get_timeout on this connection.
         See the OpenSSL manual for more details.
@@ -216,7 +216,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         self._connected = False
         self._closed = False
         self._purpose = purpose
-        self._receiver_task = None
+        self._receiver_task: asyncio.Task | None = None
         self.mtu = mtu  # todo: rename to handshake_mtu/link_mtu?
 
     @property
