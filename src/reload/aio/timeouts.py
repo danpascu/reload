@@ -12,7 +12,7 @@ if hasattr(asyncio, 'timeout'):
     timeout = asyncio.timeout
 else:
     class Timeout:
-        def __init__(self, delay: 'float | None'):
+        def __init__(self, delay: float | None):
             self._delay = delay
             self._expired = False
             self._timed_task = None
