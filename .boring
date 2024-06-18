@@ -11,6 +11,7 @@
 (^|/)\.coverage($|/)
 (^|/)\.mypy_cache($|/)
 (^|/)\.pytest_cache($|/)
+(^|/)\.ruff_cache($|/)
 (^|/)__pycache__($|/)
 \.(pyc|pyo|o|so|orig|rej|prof|bak|BAK|tmp|wpu)$
 
