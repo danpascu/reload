@@ -1,0 +1,105 @@
+
+SIP RELOAD
+
+1. Summary
+
+RELOAD stands for REsource LOcation And Discovery and is a peer-to-peer (P2P)
+signaling protocol that provides its clients with an abstract storage and
+messaging service between a set of cooperating peers that form an overlay
+network.
+
+RELOAD is designed to support a P2P Session Initiation Protocol (P2PSIP)
+network, but can be utilized by other applications with similar requirements
+by defining new usages that specify the kinds of data that need to be stored
+for a particular application. 
+
+RELOAD defines a security model based on a certificate enrollment service
+that provides unique identities. NAT traversal is a fundamental service of
+the protocol. RELOAD also allows access from "client" nodes that do not need
+to route traffic or store data for others.
+
+2. Description
+
+The goal is to implement a P2P communications network based on IETF standards
+that allows people to communicate securely without the traditional interposed
+third parties like SIP service providers.
+
+This is done both by establishing direct encrypted channels between the
+participants as well as using digital identities based on X509 certificates
+to identify the participants in a conversation, which will prevent third
+parties from inserting themselves into the conversation by attempting to
+impersonate one of the participants.
+
+This addresses concerns like privacy, security and trustworthiness of the
+parties involved in communication.
+
+3. Benefits
+
+The RELOAD network replaces the traditional SIP service providers and SIP
+proxies by allowing participants to find each other and establish direct
+secure private channels of communication between them. In addition each
+participant carries a digital identity in the form of a X509 certificate that
+is used to both identify the party as well as sign all the exchanged messages
+between parties preventing third parties from tampering with them.
+
+The digital identity is issued by the RELOAD network using an enrollment
+server that generates and signs a X509 certificate for each participant in
+the network. This certificate will contain information that pertains to the
+RELOAD network itself as well as information that pertains to the participant
+like his SIP address. The system will allow participants to use their
+existing E-mail addresses as SIP addresses, thus removing the need to
+register for yet another address to use as the SIP identity. The enrollment
+server will validate that the user has control over the E-mail address they
+try to use before issuing them a certificate that contains that address as
+their SIP identity. This allows any participant in the RELOAD network to be
+sure that they talk with someone that has proven that they own the address
+that they registered with the network, as well simplifying the management of
+online identities by allowing participants to reuse their well established
+E-mail identities as SIP identities as well. This is possible without the
+need to have control over the DNS domains of those E-mail addresses.
+
+Despite the use of digital identities to identify the participants in the
+network, people can still choose to be anonymous if they need to protect
+their privacy, by simply using an incognito E-mail address that is not
+associated with their identity and requesting a new certificate that is
+based on this E-mail address that also becomes their SIP address as well.
+
+Unlike traditional SIP networks, the RELOAD network only facilitates for
+participants to meet and to store data they intend to publish.
+After the participants find each other, they establish direct encrypted
+channels between them that cannot be intercepted or eavesdropped by the
+network. The messages used to find each other are digitally signed, so each
+participant can be sure they were not tampered with by the transiting nodes.
+
+This in in contrast with traditional networks, where there is no guarantee
+that the participants have encrypted end-to-end connections. Even if a client
+uses TLS to talk to a SIP server, there is no guarantee that the SIP server
+will use TLS on the next leg of the connection and even if it does, the SIP
+server still needs to decrypt the message and can as a result eavesdrop on
+the communication.
+In addition media encryption keys for SRTP are exchanged in clear with the
+SIP message so the SIP proxy can intercept and eavesdrop on the media
+exchanged in a conversation as well. As a consequence, technologies like ZRTP
+have emerged attempting to overcome the security and privacy shortcomings of
+the traditional SIP networks.
+
+In summary the benefits of the SIP RELOAD network in comparison with
+traditional SIP networks are:
+
+- Users can use their existing E-mail identities as SIP identities instead of
+  getting a new SIP identity associated with the domain controlled by the SIP
+  provider.
+- Users have digital identities in the form of X509 certificates that are
+  used to both identify them as well as sign any messages they exchange to
+  prevent tampering.
+- Participants in the network only use the network to find each other, after
+  which they establish direct encrypted connections between them that cannot
+  be eavesdropped by third parties.
+- Media parameters are exchanged over the encrypted channels, so media
+  encryption keys cannot be intercepted and used for eavesdropping by third
+  parties.
+- Because media encryption keys are not exposed and the identity of the
+  participants is established by the X509 certificates they use, there is no
+  need for additional technologies like ZRTP to secure communications and
+  guarantee the identity of the remote party.
+
