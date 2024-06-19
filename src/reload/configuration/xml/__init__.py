@@ -146,7 +146,7 @@ class XMLElement:
                 raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({cls._namespace_!r} != {namespace!r})')
             cls._namespace_ = namespace
         if nsmap is not None:
-            if cls._nsmap_ != nsmap:
+            if cls._nsmap_ is not None and cls._nsmap_ != nsmap:
                 raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({cls._nsmap_!r} != {nsmap!r})')
             cls._nsmap_ = nsmap
 
