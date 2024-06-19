@@ -150,13 +150,13 @@ class XMLElement:
                 raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({cls._nsmap_!r} != {nsmap!r})')
             cls._nsmap_ = nsmap
 
-        # TODO @dan: need both name and namespace defined
+        # TODO @dan: need both name and namespace defined? what are the consequences of not having a namespace?
         if cls._name_ is not None:
             if cls._namespace_ is not None:
                 cls._tag_ = f'{{{cls._namespace_}}}{cls._name_}'
                 cls._xpath_ = etree.XPath(f'ns:{cls._name_}', namespaces={'ns': cls._namespace_})
             else:
-                cls._tag_ = cls._name_  # TODO @dan: should we allow this? what are the consequences of not having a namespace?
+                cls._tag_ = cls._name_
                 cls._xpath_ = etree.XPath(cls._name_)
 
         cls._fields = cls._fields | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}  # noqa: PLR6104 !!! |= would update the parent's fields
@@ -799,7 +799,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
     def __init__(self, element_type: type[E], /) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._tag_ is None:
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
@@ -866,7 +866,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
     def __init__(self, element_type: type[E], /) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._tag_ is None:
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
@@ -937,7 +937,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
     def __init__(self, element_type: type[E], /, *, optional: bool = False) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._tag_ is None:
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
