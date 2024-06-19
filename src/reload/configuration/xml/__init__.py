@@ -76,14 +76,6 @@ class Validator(Protocol):
     def validate(self, element: ETreeElement) -> None: ...
 
 
-class XMLSchemaValidator:
-    def __init__(self, *schema_files: str) -> None:
-        pass
-
-    def validate(self, element: ETreeElement) -> None:
-        pass
-
-
 class RelaxNGValidator:
     def __init__(self, schema_file: str) -> None:
         pass
