@@ -99,34 +99,34 @@ class XMLDocument:  # TODO @dan: remove XML from name?
 class XMLElement:
     # public attributes (to be set in subclass)
 
-    name: ClassVar[str | None] = None
-    namespace: ClassVar[str | None] = None
+    _name_: ClassVar[str | None] = None
+    _namespace_: ClassVar[str | None] = None
 
     # TODO @dan: this one should probably be inherited from XMLDocument and not specified manually here
-    nsmap: ClassVar[NSMap | None] = None  # This is only relevant on the root element
+    _nsmap_: ClassVar[NSMap | None] = None  # This is only relevant on the root element
 
     # derived and internal attributes
 
-    tag: ClassVar[str | None] = None
-    xpath: ClassVar[etree.XPath | None] = None
+    _tag_: ClassVar[str | None] = None
+    _xpath_: ClassVar[etree.XPath | None] = None
 
-    element: ETreeElement
-
-    __signature__: ClassVar[Signature] = Signature()
+    _etree_element_: ETreeElement
 
     _fields: ClassVar[dict[str, 'FieldDescriptor']] = {}
 
     _all_arguments: ClassVar[frozenset[str]]
     _mandatory_arguments: ClassVar[frozenset[str]]
 
+    __signature__: ClassVar[Signature] = Signature()
+
     def __init__(self, **kw: object) -> None:
-        if self.tag is None:
+        if self._tag_ is None:
             raise TypeError(f'Cannot instantiate abstract class {self.__class__.__qualname__!r} that does not specify a name and namespace')
         if not self._all_arguments.issuperset(kw):
             raise TypeError(f'got an unexpected keyword argument {next(iter(set(kw) - self._all_arguments))!r}')
         if not self._mandatory_arguments.issubset(kw):
             raise TypeError(f'missing a required keyword argument {next(iter(self._mandatory_arguments - set(kw)))!r}')
-        self.element = etree.Element(self.tag, nsmap=self.nsmap)  # type: ignore[arg-type]  # lxml stubs are a mess
+        self._etree_element_ = etree.Element(self._tag_, nsmap=self._nsmap_)  # type: ignore[arg-type]  # lxml stubs are a mess
         for name, value in kw.items():
             setattr(self, name, value)
 
@@ -134,13 +134,13 @@ class XMLElement:
         super().__init_subclass__(**kw)
 
         # TODO @dan: need both name and namespace defined
-        if cls.name is not None:
-            if cls.namespace is not None:
-                cls.tag = f'{{{cls.namespace}}}{cls.name}'
-                cls.xpath = etree.XPath(f'ns:{cls.name}', namespaces={'ns': cls.namespace})
+        if cls._name_ is not None:
+            if cls._namespace_ is not None:
+                cls._tag_ = f'{{{cls._namespace_}}}{cls._name_}'
+                cls._xpath_ = etree.XPath(f'ns:{cls._name_}', namespaces={'ns': cls._namespace_})
             else:
-                cls.tag = cls.name  # TODO @dan: should we allow this? what are the consequences of not having a namespace?
-                cls.xpath = etree.XPath(cls.name)
+                cls._tag_ = cls._name_  # TODO @dan: should we allow this? what are the consequences of not having a namespace?
+                cls._xpath_ = etree.XPath(cls._name_)
 
         cls._fields = cls._fields | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}  # noqa: PLR6104 !!! |= would update the parent's fields
         cls.__signature__ = Signature(parameters=[descriptor.signature_parameter for descriptor in cls._fields.values()])
@@ -150,7 +150,7 @@ class XMLElement:
     @classmethod
     def from_xml(cls, element: ETreeElement) -> Self:
         instance = cls.__new__(cls)
-        instance.element = element
+        instance._etree_element_ = element
         for field in instance._fields.values():
             field.from_xml(instance)
         return instance
@@ -491,7 +491,7 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
         return f'{self.__class__.__name__}[{self._descriptor.type.__qualname__}, optional={self._descriptor.optional!r}]: {self._elements!r}'
 
     def __contains__(self, item: E) -> bool:
-        return type(item) is self._descriptor.type and item.element in self._instance.element
+        return type(item) is self._descriptor.type and item._etree_element_ in self._instance._etree_element_
 
     def __iter__(self) -> Iterator[E]:
         return iter(self._elements)
@@ -519,9 +519,9 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
         if not self._descriptor.optional and len(deleted_elements) == len(self._elements):
             raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
         del self._elements[key]
-        parent_element = self._instance.element
+        parent_element = self._instance._etree_element_
         for element in deleted_elements:
-            parent_element.remove(element.element)
+            parent_element.remove(element._etree_element_)
 
     def __iadd__(self, other: Iterable[E]) -> Self:
         for element in other:
@@ -541,15 +541,15 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
     def add(self, element: E) -> None:
         if type(element) is not self._descriptor.type:
             raise TypeError(f'element must be of type {self._descriptor.type.__qualname__}')
-        if element.element in self._instance.element:
+        if element._etree_element_ in self._instance._etree_element_:
             return
-        if element.element.getparent() is not None:
+        if element._etree_element_.getparent() is not None:
             raise ValueError(f'element {element!r} already belongs to another container')
         self._elements.append(element)
         if len(self._elements) > 1:
-            self._elements[-2].element.addnext(element.element)  # add as next sibling of the previous element
+            self._elements[-2]._etree_element_.addnext(element._etree_element_)  # add as next sibling of the previous element
         else:
-            self._instance.element.append(element.element)  # TODO @dan: find insertion point
+            self._instance._etree_element_.append(element._etree_element_)  # TODO @dan: find insertion point
 
     def remove(self, element: E) -> None:
         if type(element) is not self._descriptor.type:
@@ -557,14 +557,14 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
         if not self._descriptor.optional and len(self._elements) == 1 and self._elements[0] is element:
             raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
         self._elements.pop(self.index(element))
-        self._instance.element.remove(element.element)
+        self._instance._etree_element_.remove(element._etree_element_)
 
     def clear(self) -> None:
         if not self._descriptor.optional:
             raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
-        parent_element = self._instance.element
+        parent_element = self._instance._etree_element_
         for element in self._elements:
-            parent_element.remove(element.element)
+            parent_element.remove(element._etree_element_)
         self._elements.clear()
 
 
@@ -611,7 +611,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
         if not self._descriptor.optional and len(self._elements) == len(deleted_elements):
             raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
         del self._elements[key]
-        parent_element = self._instance.element
+        parent_element = self._instance._etree_element_
         for data_element in deleted_elements:
             parent_element.remove(data_element.element)
 
@@ -633,7 +633,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
         if len(self._elements) > 1:
             self._elements[-2].element.addnext(data_element.element)  # add as next sibling of the previous element
         else:
-            self._instance.element.append(data_element.element)  # TODO @dan: find insertion point
+            self._instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
 
     def remove(self, value: D) -> None:
         # if not isinstance(value, self._descriptor.type):  # TODO @dan: this is rather redundant (just a speed-up)
@@ -645,12 +645,12 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
         except ValueError:
             raise ValueError(f'{value!r} is not in {self.__class__.__name__}') from None
         else:
-            self._instance.element.remove(data_element.element)
+            self._instance._etree_element_.remove(data_element.element)
 
     def clear(self) -> None:
         if not self._descriptor.optional:
             raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
-        parent_element = self._instance.element
+        parent_element = self._instance._etree_element_
         for data_element in self._elements:
             parent_element.remove(data_element.element)
         self._elements.clear()
@@ -699,14 +699,14 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         if instance is None:
             return self
         try:
-            return self.xml_parse(cast(str, instance.element.attrib[self.xml_name]))
+            return self.xml_parse(cast(str, instance._etree_element_.attrib[self.xml_name]))
         except KeyError as exc:
             raise AttributeError(f"mandatory attribute '{self.name}' is missing") from exc
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
             raise TypeError(f'value must be of type {self.type.__qualname__}')
-        instance.element.set(self.xml_name, self.xml_build(value))
+        instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
     def __delete__(self, instance: XMLElement):  # noqa: ANN204
         raise AttributeError(f"mandatory attribute '{self.name}' cannot be deleted")
@@ -759,19 +759,19 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
     def __get__(self, instance: XMLElement | None, owner: type[XMLElement] | None = None) -> Self | D | None:
         if instance is None:
             return self
-        attribute = instance.element.get(self.xml_name)
+        attribute = instance._etree_element_.get(self.xml_name)
         return self.default if attribute is None else self.xml_parse(attribute)
 
     def __set__(self, instance: XMLElement, value: D | None) -> None:
         if value is None:
-            instance.element.attrib.pop(self.xml_name, '')
+            instance._etree_element_.attrib.pop(self.xml_name, '')
         else:
             if not isinstance(value, self.type):
                 raise TypeError(f'value must be of type {self.type.__qualname__}')
-            instance.element.set(self.xml_name, self.xml_build(value))
+            instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
     def __delete__(self, instance: XMLElement) -> None:
-        instance.element.attrib.pop(self.xml_name, '')
+        instance._etree_element_.attrib.pop(self.xml_name, '')
 
     def from_xml(self, instance: XMLElement) -> None:  # noqa: ARG002, PLR6301
         """Fill in the instance's field value from its corresponding etree element"""
@@ -782,7 +782,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
     def __init__(self, element_type: type[E], /) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type.name is None or element_type.namespace is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
@@ -821,13 +821,13 @@ class Element[E: XMLElement](ElementDescriptor[E]):
             raise TypeError(f'element must be of type {self.type.__qualname__}')
         if new_element is old_element:
             return
-        if new_element.element.getparent() is not None:
+        if new_element._etree_element_.getparent() is not None:
             raise ValueError(f'element {new_element!r} already belongs to another container')
         if old_element is not None:
-            instance.element.replace(old_element.element, new_element.element)
+            instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
         else:
             # TODO @dan: find insertion point
-            instance.element.append(new_element.element)
+            instance._etree_element_.append(new_element._etree_element_)
         self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -835,13 +835,13 @@ class Element[E: XMLElement](ElementDescriptor[E]):
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        elements = [element for element in instance.element if element.tag == self.type.tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
         # this could be avoided if there is mandatory schema validation
         if element_count == 0:
-            raise ValueError(f'Missing mandatory element {self.type.tag!r}')
+            raise ValueError(f'Missing mandatory element {self.type._tag_!r}')
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.type.tag!r}')
+            raise ValueError(f'Excess elements for {self.type._tag_!r}')
         self.values[instance] = self.type.from_xml(elements[0])
 
 
@@ -849,7 +849,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
     def __init__(self, element_type: type[E], /) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type.name is None or element_type.namespace is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
@@ -888,27 +888,27 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
                 return
             if type(new_element) is not self.type:
                 raise TypeError(f'element must be of type {self.type.__qualname__}')
-            if new_element.element.getparent() is not None:
+            if new_element._etree_element_.getparent() is not None:
                 raise ValueError(f'element {new_element!r} already belongs to another container')
             if old_element is not None:
-                instance.element.replace(old_element.element, new_element.element)
+                instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
             else:
                 # TODO @dan: find insertion point
-                instance.element.append(new_element.element)
+                instance._etree_element_.append(new_element._etree_element_)
             self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
         value = self.values.pop(instance, None)
         if value is not None:
-            instance.element.remove(value.element)
+            instance._etree_element_.remove(value._etree_element_)
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        elements = [element for element in instance.element if element.tag == self.type.tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
         # this could be avoided if there is mandatory schema validation
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.type.tag!r}')
+            raise ValueError(f'Excess elements for {self.type._tag_!r}')
         if element_count == 0:
             value = None
         else:
@@ -920,7 +920,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
     def __init__(self, element_type: type[E], /, *, optional: bool = False) -> None:
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
-        if element_type.name is None or element_type.namespace is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
+        if element_type._name_ is None or element_type._namespace_ is None:  # TODO @dan: also require that namespace is not None? test element_type.tag instead?
             raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
         self.name = None
         self.type = element_type
@@ -959,32 +959,32 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
 
         # FIX @dan: check that ETreeElements are not reused (len(set(e.element for e in elements)) must be the same as len(elements))
         # same goes for ElementList, also check other descriptors and containers.
-        parent_element = instance.element
+        parent_element = instance._etree_element_
         acceptable_parents = {parent_element, None}  # TODO @dan: is this true (having parent_element in the set)?
         for element in elements:
             if type(element) is not self.type:
                 raise TypeError(f'element must be of type {self.type.__qualname__}')
-            if element.element.getparent() not in acceptable_parents:
+            if element._etree_element_.getparent() not in acceptable_parents:
                 raise ValueError(f'element {element!r} already belongs to another container')
         # TODO @dan: replace old elements to preserve positions in parent?
         for element in self.values.get(instance, []):
-            parent_element.remove(element.element)
+            parent_element.remove(element._etree_element_)
         # TODO @dan: find insertion point
-        parent_element.extend(element.element for element in elements)
+        parent_element.extend(element._etree_element_ for element in elements)
         self.values[instance] = elements
 
     def __delete__(self, instance: XMLElement) -> None:
         if not self.optional:
             raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
         for element in self.values.pop(instance, []):
-            instance.element.remove(element.element)
+            instance._etree_element_.remove(element._etree_element_)
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree elements"""
-        elements = [element for element in instance.element if element.tag == self.type.tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         # this could be avoided if there is mandatory schema validation
         if not self.optional and len(elements) == 0:
-            raise ValueError(f'There must be at least 1 element for {self.type.tag!r}')
+            raise ValueError(f'There must be at least 1 element for {self.type._tag_!r}')
         self.values[instance] = [self.type.from_xml(element) for element in elements]
 
 
@@ -1049,7 +1049,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
             data_element = self.values[instance]
         except KeyError:
             data_element = self.values.setdefault(instance, DataElementValue(value, etree.Element(self.xml_tag)))
-            instance.element.append(data_element.element)  # TODO @dan: find insertion point
+            instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
         data_element.value = value
         data_element.element.text = xml_value
 
@@ -1058,7 +1058,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        elements = [element for element in instance.element if element.tag == self.xml_tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
         # this could be avoided if there is mandatory schema validation
         if element_count == 0:
@@ -1132,7 +1132,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             data_element = self.values.get(instance, None)
             if data_element is None:
                 data_element = DataElementValue(value, etree.Element(self.xml_tag))
-                instance.element.append(data_element.element)  # TODO @dan: find insertion point
+                instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
                 self.values[instance] = data_element
             data_element.value = value
             data_element.element.text = xml_value
@@ -1140,11 +1140,11 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
     def __delete__(self, instance: XMLElement) -> None:
         value = self.values.pop(instance, None)
         if value is not None:
-            instance.element.remove(value.element)
+            instance._etree_element_.remove(value.element)
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        elements = [element for element in instance.element if element.tag == self.xml_tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
         # this could be avoided if there is mandatory schema validation
         if element_count > 1:
@@ -1224,7 +1224,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         xml_values = [self.xml_build(value) for value in values]
 
         data_elements = self.values[instance]
-        parent_element = instance.element
+        parent_element = instance._etree_element_
 
         # remove excess data elements
         while len(data_elements) > len(values):
@@ -1249,11 +1249,11 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         if not self.optional:
             raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
         for data_element in self.values.pop(instance, []):
-            instance.element.remove(data_element.element)
+            instance._etree_element_.remove(data_element.element)
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        elements = [element for element in instance.element if element.tag == self.xml_tag]
+        elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         # this could be avoided if there is mandatory schema validation
         if not self.optional and len(elements) == 0:
             raise ValueError(f'There must be at least 1 element for {self.xml_tag!r}')
@@ -1303,12 +1303,12 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
     def __get__(self, instance: XMLElement | None, owner: type[XMLElement] | None = None) -> Self | D:
         if instance is None:
             return self
-        return self.xml_parse(instance.element.text or '')
+        return self.xml_parse(instance._etree_element_.text or '')
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
             raise TypeError(f'value must be of type {self.type.__qualname__}')
-        instance.element.text = self.xml_build(value)
+        instance._etree_element_.text = self.xml_build(value)
 
     def __delete__(self, instance: XMLElement) -> None:
         raise AttributeError(f'the value for the {instance.__class__.__name__!r} element cannot be deleted')

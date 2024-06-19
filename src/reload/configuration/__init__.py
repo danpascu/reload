@@ -36,32 +36,31 @@ ns_registry.add(ns_chord)
 
 
 class ReloadElement(AnnotatedXMLElement):
-    namespace = ns_reload
+    _namespace_ = ns_reload
 
 
 class ChordElement(AnnotatedXMLElement):
-    namespace = ns_chord
+    _namespace_ = ns_chord
 
 
 class SelfSignedPermitted(ReloadElement):
-    name = 'self-signed-permitted'
+    _name_ = 'self-signed-permitted'
 
     digest: Attribute[str] = Attribute(str)
     value: TextValue[bool] = TextValue(bool)
 
 
 class BootstrapNode(ReloadElement):
-    name = 'bootstrap-node'
+    _name_ = 'bootstrap-node'
 
     address: Attribute[str] = Attribute(str)
     port: OptionalAttribute[int] = OptionalAttribute(int, default=6084, adapter=IntAdapter)
 
 
 class Kind(ReloadElement):
-    name = 'kind'
+    _name_ = 'kind'
 
-    # FIX @dan: decide what to do about name clashes (name, namespace, default, type, ...)
-    kind_name: OptionalAttribute[str] = OptionalAttribute(str, name='name', default=None)
+    name: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     id: OptionalAttribute[int] = OptionalAttribute(int, default=None, adapter=UnsignedIntAdapter)
 
     data_model: DataElement[str] = DataElement(str, namespace=ns_reload, name='data-model')
@@ -72,34 +71,34 @@ class Kind(ReloadElement):
 
 
 class KindSignature(ReloadElement):
-    name = 'kind-signature'
+    _name_ = 'kind-signature'
 
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     value: TextValue[str] = TextValue(str)
 
 
 class KindBlock(ReloadElement):
-    name = 'kind-block'
+    _name_ = 'kind-block'
 
     kind: Element[Kind] = Element(Kind)
     kind_signature: OptionalElement[KindSignature] = OptionalElement(KindSignature)
 
 
 class RequiredKinds(ReloadElement):
-    name = 'required-kinds'
+    _name_ = 'required-kinds'
 
     kind_blocks: MultiElement[KindBlock] = MultiElement(KindBlock, optional=True)
 
 
 class Signature(ReloadElement):
-    name = 'signature'
+    _name_ = 'signature'
 
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     value: TextValue[str] = TextValue(str)
 
 
 class Configuration(ReloadElement):
-    name = 'configuration'
+    _name_ = 'configuration'
 
     instance_name: Attribute[str] = Attribute(str, name='instance-name')
     sequence: OptionalAttribute[int] = OptionalAttribute(int, adapter=LongAdapter, default=None)
@@ -131,7 +130,7 @@ class Configuration(ReloadElement):
 
 
 class Overlay(ReloadElement):
-    name = 'overlay'
-    nsmap = ns_registry.nsmap
+    _name_ = 'overlay'
+    _nsmap_ = ns_registry.nsmap
 
     configurations: MultiElement[Configuration] = MultiElement(Configuration, optional=False)
