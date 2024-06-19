@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from inspect import Parameter, Signature
 from math import inf
+from pathlib import Path
 from typing import ClassVar, Protocol, Self, cast, dataclass_transform, overload, runtime_checkable
 
 from lxml import etree
@@ -73,15 +74,18 @@ class NamespaceRegistry:
 
 
 class Validator(Protocol):
-    def validate(self, element: ETreeElement) -> None: ...
+    def validate(self, element: ETreeElement) -> bool: ...
 
 
 class RelaxNGValidator:
-    def __init__(self, schema_file: str) -> None:
-        pass
+    schema_directory = Path(__file__).parent / 'schema'
 
-    def validate(self, element: ETreeElement) -> None:
-        pass
+    def __init__(self, schema_file: str) -> None:
+        self.schema_path = self.schema_directory / schema_file
+        self.schema = etree.RelaxNG(file=self.schema_path)
+
+    def validate(self, element: ETreeElement) -> bool:
+        return self.schema.validate(element)
 
 
 class XMLDocument:  # TODO @dan: remove XML from name?
