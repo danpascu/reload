@@ -35,31 +35,25 @@ ns_registry.add(ns_reload)
 ns_registry.add(ns_chord)
 
 
-class ReloadElement(AnnotatedXMLElement):
-    _namespace_ = ns_reload
+class ReloadElement(AnnotatedXMLElement, namespace=ns_reload):
+    pass
 
 
-class ChordElement(AnnotatedXMLElement):
-    _namespace_ = ns_chord
+class ChordElement(AnnotatedXMLElement, namespace=ns_chord):
+    pass
 
 
-class SelfSignedPermitted(ReloadElement):
-    _name_ = 'self-signed-permitted'
-
+class SelfSignedPermitted(ReloadElement, name='self-signed-permitted'):
     digest: Attribute[str] = Attribute(str)
     value: TextValue[bool] = TextValue(bool)
 
 
-class BootstrapNode(ReloadElement):
-    _name_ = 'bootstrap-node'
-
+class BootstrapNode(ReloadElement, name='bootstrap-node'):
     address: Attribute[str] = Attribute(str)
     port: OptionalAttribute[int] = OptionalAttribute(int, default=6084, adapter=IntAdapter)
 
 
-class Kind(ReloadElement):
-    _name_ = 'kind'
-
+class Kind(ReloadElement, name='kind'):
     name: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     id: OptionalAttribute[int] = OptionalAttribute(int, default=None, adapter=UnsignedIntAdapter)
 
@@ -70,36 +64,26 @@ class Kind(ReloadElement):
     max_node_multiple: OptionalDataElement[int] = OptionalDataElement(int, namespace=ns_reload, name='max-node-multiple', adapter=IntAdapter, default=None)
 
 
-class KindSignature(ReloadElement):
-    _name_ = 'kind-signature'
-
+class KindSignature(ReloadElement, name='kind-signature'):
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     value: TextValue[str] = TextValue(str)
 
 
-class KindBlock(ReloadElement):
-    _name_ = 'kind-block'
-
+class KindBlock(ReloadElement, name='kind-block'):
     kind: Element[Kind] = Element(Kind)
     kind_signature: OptionalElement[KindSignature] = OptionalElement(KindSignature)
 
 
-class RequiredKinds(ReloadElement):
-    _name_ = 'required-kinds'
-
+class RequiredKinds(ReloadElement, name='required-kinds'):
     kind_blocks: MultiElement[KindBlock] = MultiElement(KindBlock, optional=True)
 
 
-class Signature(ReloadElement):
-    _name_ = 'signature'
-
+class Signature(ReloadElement, name='signature'):
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
     value: TextValue[str] = TextValue(str)
 
 
-class Configuration(ReloadElement):
-    _name_ = 'configuration'
-
+class Configuration(ReloadElement, name='configuration'):
     instance_name: Attribute[str] = Attribute(str, name='instance-name')
     sequence: OptionalAttribute[int] = OptionalAttribute(int, adapter=LongAdapter, default=None)
     expiration: OptionalAttribute[datetime] = OptionalAttribute(datetime, default=None)
@@ -129,8 +113,5 @@ class Configuration(ReloadElement):
     mandatory_extensions: MultiDataElement[str] = MultiDataElement(str, namespace=ns_reload, name='mandatory-extension', optional=True)
 
 
-class Overlay(ReloadElement):
-    _name_ = 'overlay'
-    _nsmap_ = ns_registry.nsmap
-
+class Overlay(ReloadElement, name='overlay', nsmap=ns_registry.nsmap):
     configurations: MultiElement[Configuration] = MultiElement(Configuration, optional=False)

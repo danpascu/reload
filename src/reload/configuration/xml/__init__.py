@@ -97,15 +97,19 @@ class XMLDocument:  # TODO @dan: remove XML from name?
 
 
 class XMLElement:
-    # public attributes (to be set in subclass)
+    # Public attributes. These can either be overwritten by subclasses, or preferably specified via class parameters:
+    #
+    # class MyElement(XMLElement, name=..., namespace=..., nsmap=...):
+    #     ...
+    #
+    # Note that class parameters use normal names, while class attributes use sunder names to avoid conflicts with
+    # application defined XMLElement attributes and elements.
 
     _name_: ClassVar[str | None] = None
     _namespace_: ClassVar[str | None] = None
-
-    # TODO @dan: this one should probably be inherited from XMLDocument and not specified manually here
     _nsmap_: ClassVar[NSMap | None] = None  # This is only relevant on the root element
 
-    # derived and internal attributes
+    # Derived and internal attributes (these should not be overwritten in subclasses)
 
     _tag_: ClassVar[str | None] = None
     _xpath_: ClassVar[etree.XPath | None] = None
@@ -130,8 +134,21 @@ class XMLElement:
         for name, value in kw.items():
             setattr(self, name, value)
 
-    def __init_subclass__(cls, **kw: object) -> None:
+    def __init_subclass__(cls, name: str | None = None, namespace: str | None = None, nsmap: NSMap | None = None, **kw: object) -> None:
         super().__init_subclass__(**kw)
+
+        if name is not None:
+            if cls._name_ is not None and name != cls._name_:
+                raise TypeError(f'The name specified via class parameter and the "_name_" class attribute are different ({cls._name_!r} != {name!r})')
+            cls._name_ = name
+        if namespace is not None:
+            if cls._namespace_ is not None and cls._namespace_ != namespace:
+                raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({cls._namespace_!r} != {namespace!r})')
+            cls._namespace_ = namespace
+        if nsmap is not None:
+            if cls._nsmap_ != nsmap:
+                raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({cls._nsmap_!r} != {nsmap!r})')
+            cls._nsmap_ = nsmap
 
         # TODO @dan: need both name and namespace defined
         if cls._name_ is not None:
