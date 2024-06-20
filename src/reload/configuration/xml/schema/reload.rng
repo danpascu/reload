@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<grammar xmlns="http://relaxng.org/ns/structure/1.0"
+         ns="urn:ietf:params:xml:ns:p2p:config-base"
+         xmlns:chord="urn:ietf:params:xml:ns:p2p:config-chord"
+         xmlns:p2pcf="urn:ietf:params:xml:ns:p2p:config-base"
+         xmlns:rng="http://relaxng.org/ns/structure/1.0"
+         datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes">
+  <define name="anything">
+    <zeroOrMore>
+      <choice>
+        <element>
+          <anyName/>
+          <ref name="anything"/>
+        </element>
+        <attribute>
+          <anyName/>
+          <text/>
+        </attribute>
+        <text/>
+      </choice>
+    </zeroOrMore>
+  </define>
+  <define name="foreign-elements">
+    <zeroOrMore>
+      <element>
+        <anyName>
+          <except>
+            <choice>
+              <nsName ns="urn:ietf:params:xml:ns:p2p:config-base"/>
+              <nsName ns="urn:ietf:params:xml:ns:p2p:config-chord"/>
+              <nsName ns=""/>
+            </choice>
+          </except>
+        </anyName>
+        <ref name="anything"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="foreign-attributes">
+    <zeroOrMore>
+      <attribute>
+        <anyName>
+          <except>
+            <choice>
+              <nsName ns="urn:ietf:params:xml:ns:p2p:config-base"/>
+              <nsName ns="urn:ietf:params:xml:ns:p2p:config-chord"/>
+              <nsName ns=""/>
+            </choice>
+          </except>
+        </anyName>
+        <text/>
+      </attribute>
+    </zeroOrMore>
+  </define>
+  <define name="foreign-nodes">
+    <zeroOrMore>
+      <choice>
+        <ref name="foreign-attributes"/>
+        <ref name="foreign-elements"/>
+      </choice>
+    </zeroOrMore>
+  </define>
+  <start>
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">overlay</name>
+      <ref name="overlay-element"/>
+    </element>
+  </start>
+  <define name="overlay-element" combine="interleave">
+    <oneOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">configuration</name>
+        <attribute>
+          <name ns="">instance-name</name>
+          <data type="string"/>
+        </attribute>
+        <optional>
+          <attribute>
+            <name ns="">expiration</name>
+            <data type="dateTime"/>
+          </attribute>
+        </optional>
+        <optional>
+          <attribute>
+            <name ns="">sequence</name>
+            <data type="long"/>
+          </attribute>
+        </optional>
+        <zeroOrMore>
+          <ref name="foreign-attributes"/>
+        </zeroOrMore>
+        <ref name="parameter"/>
+      </element>
+    </oneOrMore>
+  </define>
+  <define name="overlay-element" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">signature</name>
+        <optional>
+          <attribute>
+            <name ns="">algorithm</name>
+            <ref name="signature-algorithm-type"/>
+          </attribute>
+        </optional>
+        <data type="base64Binary"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="signature-algorithm-type" combine="choice">
+    <value>rsa-sha1</value>
+  </define>
+  <define name="signature-algorithm-type" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">topology-plugin</name>
+        <ref name="topology-plugin-type"/>
+      </element>
+    </optional>
+  </define>
+  <define name="topology-plugin-type" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">max-message-size</name>
+        <data type="unsignedInt"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">initial-ttl</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">root-cert</name>
+        <data type="base64Binary"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">required-kinds</name>
+        <zeroOrMore>
+          <ref name="kind-block"/>
+        </zeroOrMore>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">enrollment-server</name>
+        <data type="anyURI"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">kind-signer</name>
+        <data type="string"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">configuration-signer</name>
+        <data type="string"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">bad-node</name>
+        <data type="string"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">no-ice</name>
+        <data type="boolean"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">shared-secret</name>
+        <data type="string"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">overlay-reliability-timer</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">overlay-link-protocol</name>
+        <data type="string"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">clients-permitted</name>
+        <data type="boolean"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">turn-density</name>
+        <data type="unsignedByte"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">node-id-length</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">mandatory-extension</name>
+        <data type="string"/>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <ref name="foreign-elements"/>
+    </zeroOrMore>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">self-signed-permitted</name>
+        <attribute>
+          <name ns="">digest</name>
+          <ref name="self-signed-digest-type"/>
+        </attribute>
+        <data type="boolean"/>
+      </element>
+    </optional>
+  </define>
+  <define name="self-signed-digest-type" combine="choice">
+    <value>sha1</value>
+  </define>
+  <define name="self-signed-digest-type" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="parameter" combine="interleave">
+    <zeroOrMore>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">bootstrap-node</name>
+        <attribute>
+          <name ns="">address</name>
+          <data type="string"/>
+        </attribute>
+        <optional>
+          <attribute>
+            <name ns="">port</name>
+            <data type="int"/>
+          </attribute>
+        </optional>
+      </element>
+    </zeroOrMore>
+  </define>
+  <define name="kind-block">
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">kind-block</name>
+      <interleave>
+        <element>
+          <name ns="urn:ietf:params:xml:ns:p2p:config-base">kind</name>
+          <choice>
+            <attribute>
+              <name ns="">name</name>
+              <ref name="kind-names"/>
+            </attribute>
+            <attribute>
+              <name ns="">id</name>
+              <data type="unsignedInt"/>
+            </attribute>
+          </choice>
+          <ref name="kind-parameter"/>
+        </element>
+        <optional>
+          <element>
+            <name ns="urn:ietf:params:xml:ns:p2p:config-base">kind-signature</name>
+            <optional>
+              <attribute>
+                <name ns="">algorithm</name>
+                <ref name="signature-algorithm-type"/>
+              </attribute>
+            </optional>
+            <data type="base64Binary"/>
+          </element>
+        </optional>
+      </interleave>
+    </element>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">max-count</name>
+      <data type="int"/>
+    </element>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">max-size</name>
+      <data type="int"/>
+    </element>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-base">max-node-multiple</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">data-model</name>
+      <ref name="data-model-type"/>
+    </element>
+  </define>
+  <define name="data-model-type" combine="choice">
+    <value>SINGLE</value>
+  </define>
+  <define name="data-model-type" combine="choice">
+    <value>ARRAY</value>
+  </define>
+  <define name="data-model-type" combine="choice">
+    <value>DICTIONARY</value>
+  </define>
+  <define name="data-model-type" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <element>
+      <name ns="urn:ietf:params:xml:ns:p2p:config-base">access-control</name>
+      <ref name="access-control-type"/>
+    </element>
+  </define>
+  <define name="access-control-type" combine="choice">
+    <value>USER-MATCH</value>
+  </define>
+  <define name="access-control-type" combine="choice">
+    <value>NODE-MATCH</value>
+  </define>
+  <define name="access-control-type" combine="choice">
+    <value>USER-NODE-MATCH</value>
+  </define>
+  <define name="access-control-type" combine="choice">
+    <value>NODE-MULTIPLE</value>
+  </define>
+  <define name="access-control-type" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="kind-parameter" combine="interleave">
+    <zeroOrMore>
+      <ref name="foreign-elements"/>
+    </zeroOrMore>
+  </define>
+  <define name="kind-names" combine="choice">
+    <value>TURN-SERVICE</value>
+  </define>
+  <define name="kind-names" combine="choice">
+    <value>CERTIFICATE_BY_NODE</value>
+  </define>
+  <define name="kind-names" combine="choice">
+    <value>CERTIFICATE_BY_USER</value>
+  </define>
+  <define name="kind-names" combine="choice">
+    <data type="string"/>
+  </define>
+  <define name="topology-plugin-type" combine="choice">
+    <value>CHORD-RELOAD</value>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-chord">chord-ping-interval</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-chord">chord-update-interval</name>
+        <data type="int"/>
+      </element>
+    </optional>
+  </define>
+  <define name="parameter" combine="interleave">
+    <optional>
+      <element>
+        <name ns="urn:ietf:params:xml:ns:p2p:config-chord">chord-reactive</name>
+        <data type="boolean"/>
+      </element>
+    </optional>
+  </define>
+</grammar>
