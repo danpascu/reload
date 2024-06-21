@@ -110,7 +110,7 @@ class XMLElement:
     # application defined XMLElement attributes and elements.
 
     _name_: ClassVar[str | None] = None
-    _namespace_: ClassVar[str | None] = None
+    _namespace_: ClassVar[Namespace | None] = None
     _nsmap_: ClassVar[NSMap | None] = None  # This is only relevant on the root element
 
     # Derived and internal attributes (these should not be overwritten in subclasses)
@@ -138,7 +138,7 @@ class XMLElement:
         for name, value in kw.items():
             setattr(self, name, value)
 
-    def __init_subclass__(cls, name: str | None = None, namespace: str | None = None, nsmap: NSMap | None = None, **kw: object) -> None:
+    def __init_subclass__(cls, name: str | None = None, namespace: Namespace | None = None, nsmap: NSMap | None = None, **kw: object) -> None:
         super().__init_subclass__(**kw)
 
         if name is not None:
@@ -458,7 +458,7 @@ class DataElementDescriptor[D: XMLData](FieldDescriptor[D], ABC):
 
     xml_tag: str
     xml_name: str
-    xml_namespace: str
+    xml_namespace: Namespace
     xml_build: Callable[[D], str]
     xml_parse: Callable[[str], D]
 
@@ -1010,7 +1010,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
 
 
 class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs xml_name, namespace vs xml_namespace, adapter vs data_adapter
-    def __init__(self, data_type: type[D], /, *, namespace: str, name: str | None = None, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
@@ -1091,7 +1091,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
 
 
 class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
-    def __init__(self, data_type: type[D], /, *, namespace: str, name: str | None = None, default: D | None = None, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, default: D | None = None, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
@@ -1179,7 +1179,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
 
 
 class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
-    def __init__(self, data_type: type[D], /, *, namespace: str, name: str | None = None, optional: bool = False, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, optional: bool = False, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
