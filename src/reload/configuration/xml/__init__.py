@@ -176,6 +176,9 @@ class XMLElement:
         cls._all_arguments = frozenset(cls.__signature__.parameters)
         cls._mandatory_arguments = frozenset(p.name for p in cls.__signature__.parameters.values() if p.default is Parameter.empty)
 
+    def __del__(self) -> None:
+        self._etree_element_.clear()
+
     @classmethod
     def from_xml(cls, element: ETreeElement) -> Self:
         instance = cls.__new__(cls)
