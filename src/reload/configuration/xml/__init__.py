@@ -144,15 +144,15 @@ class XMLElement:
 
         if name is not None:
             if '_name_' in cls.__dict__ and cls._name_ != name:
-                raise TypeError(f'The name specified via class parameter and the "_name_" class attribute are different ({cls._name_!r} != {name!r})')
+                raise TypeError(f'The name specified via class parameter and the "_name_" class attribute are different ({name!r} != {cls._name_!r})')
             cls._name_ = name
         if namespace is not None:
             if '_namespace_' in cls.__dict__ and cls._namespace_ != namespace:
-                raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({cls._namespace_!r} != {namespace!r})')
+                raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({namespace!r} != {cls._namespace_!r})')
             cls._namespace_ = namespace
         if nsmap is not None:
             if '_nsmap_' in cls.__dict__ and cls._nsmap_ != nsmap:
-                raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({cls._nsmap_!r} != {nsmap!r})')
+                raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({nsmap!r} != {cls._nsmap_!r})')
             cls._nsmap_ = nsmap
 
         # TODO @dan: need both name and namespace defined? what are the consequences of not having a namespace?
