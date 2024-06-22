@@ -118,6 +118,8 @@ class XMLElement:
     _tag_: ClassVar[str | None] = None
     _xpath_: ClassVar[etree.XPath | None] = None
 
+    _associated_namespaces_: ClassVar[set[Namespace]] = set()  # all the namespaces associated with this element and its subelements
+
     _etree_element_: ETreeElement
 
     _fields: ClassVar[dict[str, 'FieldDescriptor']] = {}
@@ -163,8 +165,18 @@ class XMLElement:
                 cls._tag_ = cls._name_
                 cls._xpath_ = etree.XPath(cls._name_)
 
-        cls._fields = cls._fields | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}  # noqa: PLR6104 !!! |= would update the parent's fields
-        cls.__signature__ = Signature(parameters=[descriptor.signature_parameter for descriptor in cls._fields.values()])
+        # all the fields on this element (both inherited and locally defined)
+        fields = cls._fields | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}
+
+        # all the namespaces associated with this element and its subelements
+        namespaces = {cls._namespace_} if cls._namespace_ is not None else set()
+        namespaces.update(*(field.type._associated_namespaces_ for field in fields.values() if issubclass(field.type, XMLElement)))
+        namespaces.update(field.xml_namespace for field in fields.values() if isinstance(field, DataElementDescriptor))
+
+        cls._associated_namespaces_ = namespaces
+        cls._fields = fields
+
+        cls.__signature__ = Signature(parameters=[descriptor.signature_parameter for descriptor in fields.values()])
         cls._all_arguments = frozenset(cls.__signature__.parameters)
         cls._mandatory_arguments = frozenset(p.name for p in cls.__signature__.parameters.values() if p.default is Parameter.empty)
 
