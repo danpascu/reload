@@ -143,15 +143,15 @@ class XMLElement:
         super().__init_subclass__(**kw)
 
         if name is not None:
-            if cls._name_ is not None and name != cls._name_:
+            if '_name_' in cls.__dict__ and cls._name_ != name:
                 raise TypeError(f'The name specified via class parameter and the "_name_" class attribute are different ({cls._name_!r} != {name!r})')
             cls._name_ = name
         if namespace is not None:
-            if cls._namespace_ is not None and cls._namespace_ != namespace:
+            if '_namespace_' in cls.__dict__ and cls._namespace_ != namespace:
                 raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({cls._namespace_!r} != {namespace!r})')
             cls._namespace_ = namespace
         if nsmap is not None:
-            if cls._nsmap_ is not None and cls._nsmap_ != nsmap:
+            if '_nsmap_' in cls.__dict__ and cls._nsmap_ != nsmap:
                 raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({cls._nsmap_!r} != {nsmap!r})')
             cls._nsmap_ = nsmap
 
