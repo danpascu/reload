@@ -113,5 +113,5 @@ class Configuration(ReloadElement, name='configuration'):
     mandatory_extensions: MultiDataElement[str] = MultiDataElement(str, namespace=ns_reload, name='mandatory-extension', optional=True)
 
 
-class Overlay(ReloadElement, name='overlay', nsmap=ns_registry.nsmap):
+class Overlay(ReloadElement, name='overlay'):
     configurations: MultiElement[Configuration] = MultiElement(Configuration, optional=False)

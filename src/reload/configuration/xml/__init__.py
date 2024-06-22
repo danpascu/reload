@@ -103,7 +103,7 @@ class XMLDocument:  # TODO @dan: remove XML from name?
 class XMLElement:
     # Public attributes. These can either be overwritten by subclasses, or preferably specified via class parameters:
     #
-    # class MyElement(XMLElement, name=..., namespace=..., nsmap=...):
+    # class MyElement(XMLElement, name=..., namespace=...):
     #     ...
     #
     # Note that class parameters use normal names, while class attributes use sunder names to avoid conflicts with
@@ -111,7 +111,6 @@ class XMLElement:
 
     _name_: ClassVar[str | None] = None
     _namespace_: ClassVar[Namespace | None] = None
-    _nsmap_: ClassVar[NSMap | None] = None  # This is only relevant on the root element
 
     # Derived and internal attributes (these should not be overwritten in subclasses)
 
@@ -122,6 +121,7 @@ class XMLElement:
 
     _fields_: ClassVar[dict[str, 'FieldDescriptor']] = {}
     _associated_namespaces_: ClassVar[set[Namespace]] = set()  # all the namespaces associated with this element and its subelements
+    _nsmap_: ClassVar[NSMap | None] = None
 
     __signature__: ClassVar[Signature] = Signature()
 
@@ -139,7 +139,7 @@ class XMLElement:
         for name, value in kw.items():
             setattr(self, name, value)
 
-    def __init_subclass__(cls, name: str | None = None, namespace: Namespace | None = None, nsmap: NSMap | None = None, **kw: object) -> None:
+    def __init_subclass__(cls, name: str | None = None, namespace: Namespace | None = None, **kw: object) -> None:
         super().__init_subclass__(**kw)
 
         if name is not None:
@@ -150,10 +150,6 @@ class XMLElement:
             if '_namespace_' in cls.__dict__ and cls._namespace_ != namespace:
                 raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({namespace!r} != {cls._namespace_!r})')
             cls._namespace_ = namespace
-        if nsmap is not None:
-            if '_nsmap_' in cls.__dict__ and cls._nsmap_ != nsmap:
-                raise TypeError(f'The nsmap specified via class parameter and the "_nsmap_" class attribute are different ({nsmap!r} != {cls._nsmap_!r})')
-            cls._nsmap_ = nsmap
 
         # TODO @dan: need both name and namespace defined? what are the consequences of not having a namespace?
         if cls._name_ is not None:
@@ -174,6 +170,7 @@ class XMLElement:
 
         cls._fields_ = fields
         cls._associated_namespaces_ = namespaces
+        cls._nsmap_ = {ns.prefix: ns for ns in sorted(namespaces)} if namespaces else None
 
         cls.__signature__ = Signature(parameters=[descriptor.signature_parameter for descriptor in fields.values()])
         cls._all_arguments = frozenset(cls.__signature__.parameters)
