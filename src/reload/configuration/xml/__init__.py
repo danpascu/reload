@@ -115,19 +115,18 @@ class XMLElement:
 
     # Derived and internal attributes (these should not be overwritten in subclasses)
 
+    _etree_element_: ETreeElement
+
     _tag_: ClassVar[str | None] = None
     _xpath_: ClassVar[etree.XPath | None] = None
 
+    _fields_: ClassVar[dict[str, 'FieldDescriptor']] = {}
     _associated_namespaces_: ClassVar[set[Namespace]] = set()  # all the namespaces associated with this element and its subelements
 
-    _etree_element_: ETreeElement
-
-    _fields_: ClassVar[dict[str, 'FieldDescriptor']] = {}
+    __signature__: ClassVar[Signature] = Signature()
 
     _all_arguments: ClassVar[frozenset[str]]
     _mandatory_arguments: ClassVar[frozenset[str]]
-
-    __signature__: ClassVar[Signature] = Signature()
 
     def __init__(self, **kw: object) -> None:
         if self._tag_ is None:
