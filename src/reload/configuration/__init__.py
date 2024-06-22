@@ -14,7 +14,6 @@ from .xml import (
     MultiDataElement,
     MultiElement,
     Namespace,
-    NamespaceRegistry,
     OptionalAttribute,
     OptionalDataElement,
     OptionalElement,
@@ -26,13 +25,8 @@ from .xml import (
 __all__ = 'Overlay', 'Configuration', 'SelfSignedPermitted', 'BootstrapNode', 'RequiredKinds', 'KindBlock', 'Kind', 'KindSignature'  # noqa: RUF022
 
 
-ns_registry = NamespaceRegistry()
-
 ns_reload = Namespace('urn:ietf:params:xml:ns:p2p:config-base', schema='reload.rng', prefix=None)
 ns_chord = Namespace('urn:ietf:params:xml:ns:p2p:config-chord', schema='reload.rng', prefix='chord')
-
-ns_registry.add(ns_reload)
-ns_registry.add(ns_chord)
 
 
 class ReloadElement(AnnotatedXMLElement, namespace=ns_reload):

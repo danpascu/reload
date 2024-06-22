@@ -48,31 +48,6 @@ class Namespace(str):
         return super().__setattr__(name, value)
 
 
-class NamespaceRegistry:
-    def __init__(self) -> None:
-        self._namespaces: list[Namespace] = []
-
-    def __iter__(self) -> Iterator[Namespace]:
-        return iter(self._namespaces)
-
-    def __len__(self) -> int:
-        return len(self._namespaces)
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}: [{', '.join(repr(ns) for ns in self._namespaces)}]'
-
-    @property
-    def nsmap(self) -> NSMap | None:
-        return {ns.prefix: ns for ns in self._namespaces} if self._namespaces else None
-
-    def add(self, namespace: Namespace) -> None:
-        if namespace in self._namespaces:
-            raise ValueError(f'Namespace {str(namespace)!r} is already registered')
-        if namespace.prefix in {ns.prefix for ns in self._namespaces}:
-            raise ValueError(f'Namespace prefix {namespace.prefix!r} is already registered')
-        self._namespaces.append(namespace)
-
-
 class Validator(Protocol):
     def validate(self, element: ETreeElement) -> bool: ...
 
