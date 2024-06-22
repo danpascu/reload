@@ -122,7 +122,7 @@ class XMLElement:
 
     _etree_element_: ETreeElement
 
-    _fields: ClassVar[dict[str, 'FieldDescriptor']] = {}
+    _fields_: ClassVar[dict[str, 'FieldDescriptor']] = {}
 
     _all_arguments: ClassVar[frozenset[str]]
     _mandatory_arguments: ClassVar[frozenset[str]]
@@ -166,15 +166,15 @@ class XMLElement:
                 cls._xpath_ = etree.XPath(cls._name_)
 
         # all the fields on this element (both inherited and locally defined)
-        fields = cls._fields | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}
+        fields = cls._fields_ | {name: value for name, value in cls.__dict__.items() if isinstance(value, FieldDescriptor)}
 
         # all the namespaces associated with this element and its subelements
         namespaces = {cls._namespace_} if cls._namespace_ is not None else set()
         namespaces.update(*(field.type._associated_namespaces_ for field in fields.values() if issubclass(field.type, XMLElement)))
         namespaces.update(field.xml_namespace for field in fields.values() if isinstance(field, DataElementDescriptor))
 
+        cls._fields_ = fields
         cls._associated_namespaces_ = namespaces
-        cls._fields = fields
 
         cls.__signature__ = Signature(parameters=[descriptor.signature_parameter for descriptor in fields.values()])
         cls._all_arguments = frozenset(cls.__signature__.parameters)
@@ -184,7 +184,7 @@ class XMLElement:
     def from_xml(cls, element: ETreeElement) -> Self:
         instance = cls.__new__(cls)
         instance._etree_element_ = element
-        for field in instance._fields.values():
+        for field in instance._fields_.values():
             field.from_xml(instance)
         return instance
 
