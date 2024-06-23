@@ -141,7 +141,7 @@ class XMLElement:
         # all the namespaces associated with this element and its subelements
         namespaces = {cls._namespace_} if cls._namespace_ is not None else set()
         namespaces.update(*(field.type._associated_namespaces_ for field in fields.values() if issubclass(field.type, XMLElement)))
-        namespaces.update(field.xml_namespace for field in fields.values() if isinstance(field, DataElementDescriptor))
+        namespaces.update(field.xml_namespace for field in fields.values() if isinstance(field, DataElementDescriptor) and field.xml_namespace is not None)
 
         cls._fields_ = fields
         cls._associated_namespaces_ = namespaces
@@ -444,7 +444,7 @@ class DataElementDescriptor[D: XMLData](FieldDescriptor[D], ABC):
 
     xml_tag: str
     xml_name: str
-    xml_namespace: Namespace
+    xml_namespace: Namespace | None
     xml_build: Callable[[D], str]
     xml_parse: Callable[[str], D]
 
@@ -996,12 +996,12 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
 
 
 class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs xml_name, namespace vs xml_namespace, adapter vs data_adapter
-    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace | None = None, name: str | None = None, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         self.adapter = adapter
 
         if adapter is None:
@@ -1025,12 +1025,13 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
         adapter_name = self.adapter.__qualname__ if self.adapter else None
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, adapter={adapter_name})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+            self.xml_namespace = self.xml_namespace or owner._namespace_
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
@@ -1077,12 +1078,12 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
 
 
 class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
-    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, default: D | None = None, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace | None = None, name: str | None = None, default: D | None = None, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         self.default = default
         self.adapter = adapter
 
@@ -1107,12 +1108,13 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
         adapter_name = self.adapter.__qualname__ if self.adapter else None
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, default={self.default!r}, adapter={adapter_name})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+            self.xml_namespace = self.xml_namespace or owner._namespace_
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
@@ -1165,12 +1167,12 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
 
 
 class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
-    def __init__(self, data_type: type[D], /, *, namespace: Namespace, name: str | None = None, optional: bool = False, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, *, namespace: Namespace | None = None, name: str | None = None, optional: bool = False, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         self.optional = optional
         self.adapter = adapter
 
@@ -1195,12 +1197,13 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         adapter_name = self.adapter.__qualname__ if self.adapter else None
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, optional={self.optional!r}, adapter={adapter_name})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}'
+            self.xml_namespace = self.xml_namespace or owner._namespace_
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
