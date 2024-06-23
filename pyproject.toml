@@ -51,7 +51,7 @@ warn_unused_ignores = true
 
 [tool.ruff]
 preview = true
-line-length = 180
+line-length = 200
 extend-exclude = ["_darcs", ".idea", ".mypy_cache", ".pytest_cache"]
 
 [tool.ruff.format]
