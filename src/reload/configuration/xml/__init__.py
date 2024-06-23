@@ -524,7 +524,7 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
     def __delitem__(self, key: int | slice) -> None:
         deleted_elements = self._elements[key] if isinstance(key, slice) else [self._elements[key]]
         if not self._descriptor.optional and len(deleted_elements) == len(self._elements):
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         del self._elements[key]
         parent_element = self._instance._etree_element_
         for element in deleted_elements:
@@ -562,13 +562,13 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
         if type(element) is not self._descriptor.type:
             raise ValueError(f'{element!r} is not in {self.__class__.__name__}')
         if not self._descriptor.optional and len(self._elements) == 1 and self._elements[0] is element:
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         self._elements.pop(self.index(element))
         self._instance._etree_element_.remove(element._etree_element_)
 
     def clear(self) -> None:
         if not self._descriptor.optional:
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         parent_element = self._instance._etree_element_
         for element in self._elements:
             parent_element.remove(element._etree_element_)
@@ -616,7 +616,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
     def __delitem__(self, key: int | slice) -> None:
         deleted_elements = self._elements[key] if isinstance(key, slice) else [self._elements[key]]
         if not self._descriptor.optional and len(self._elements) == len(deleted_elements):
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         del self._elements[key]
         parent_element = self._instance._etree_element_
         for data_element in deleted_elements:
@@ -646,7 +646,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
         # if not isinstance(value, self._descriptor.type):  # TODO @dan: this is rather redundant (just a speed-up)
         #     raise ValueError(f'{value!r} is not in {self.__class__.__name__}')
         if not self._descriptor.optional and len(self._elements) == 1 and self._elements[0].value == value:
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         try:
             data_element = self._elements.pop(self.index(value))
         except ValueError:
@@ -656,7 +656,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
 
     def clear(self) -> None:
         if not self._descriptor.optional:
-            raise ValueError(f"the '{self._descriptor.name}' element must have at least one item")
+            raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         parent_element = self._instance._etree_element_
         for data_element in self._elements:
             parent_element.remove(data_element.element)
@@ -708,7 +708,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         try:
             return self.xml_parse(cast(str, instance._etree_element_.attrib[self.xml_name]))
         except KeyError as exc:
-            raise AttributeError(f"mandatory attribute '{self.name}' is missing") from exc
+            raise AttributeError(f'mandatory attribute {self.name!r} is missing') from exc
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
@@ -716,7 +716,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
     def __delete__(self, instance: XMLElement):  # noqa: ANN204
-        raise AttributeError(f"mandatory attribute '{self.name}' cannot be deleted")
+        raise AttributeError(f'mandatory attribute {self.name!r} cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:  # noqa: ARG002, PLR6301
         """Fill in the instance's field value from its corresponding etree element"""
@@ -790,7 +790,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
         if element_type._tag_ is None:
-            raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
+            raise TypeError(f'{element_type.__qualname__!r} must specify a name and namespace to be usable as element type')
         self.name = None
         self.type = element_type
         self.values: MutableMapping[XMLElement, E] = weakobjectmap()
@@ -817,7 +817,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         try:
             return self.values[instance]
         except KeyError as exc:
-            raise AttributeError(f"mandatory element '{self.name}' is missing") from exc
+            raise AttributeError(f'mandatory element {self.name!r} is missing') from exc
 
     def __set__(self, instance: XMLElement, value: E) -> None:
         new_element = value
@@ -838,7 +838,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
-        raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
+        raise AttributeError(f'mandatory element {self.name!r} cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
@@ -857,7 +857,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
         if element_type._tag_ is None:
-            raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
+            raise TypeError(f'{element_type.__qualname__!r} must specify a name and namespace to be usable as element type')
         self.name = None
         self.type = element_type
         self.values: MutableMapping[XMLElement, E | None] = defaultweakobjectmap(NoneType)
@@ -928,7 +928,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         if not (isinstance(element_type, type) and issubclass(element_type, XMLElement)):
             raise TypeError(f"element type must be a subclass of XMLElement, not '{type(element_type)}'")
         if element_type._tag_ is None:
-            raise TypeError(f"'{element_type.__qualname__}' must specify a name and namespace to be usable as element type")
+            raise TypeError(f'{element_type.__qualname__!r} must specify a name and namespace to be usable as element type')
         self.name = None
         self.type = element_type
         self.optional = optional
@@ -955,14 +955,14 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
             return self
         elements = self.values[instance]
         if not elements and not self.optional:
-            raise AttributeError(f"mandatory element '{self.name}' is missing")
+            raise AttributeError(f'mandatory element {self.name!r} is missing')
         return ElementList(self, instance, elements)
 
     def __set__(self, instance: XMLElement, value: Iterable[E]) -> None:
         elements = list(value)
 
         if not elements and not self.optional:
-            raise ValueError(f"the '{self.name}' element must have at least one item")
+            raise ValueError(f'the {self.name!r} element must have at least one item')
 
         # FIX @dan: check that ETreeElements are not reused (len(set(e.element for e in elements)) must be the same as len(elements))
         # same goes for ElementList, also check other descriptors and containers.
@@ -982,7 +982,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
 
     def __delete__(self, instance: XMLElement) -> None:
         if not self.optional:
-            raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
+            raise AttributeError(f'mandatory element {self.name!r} cannot be deleted')
         for element in self.values.pop(instance, []):
             instance._etree_element_.remove(element._etree_element_)
 
@@ -1047,7 +1047,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
         try:
             return self.values[instance].value
         except KeyError as exc:
-            raise AttributeError(f"mandatory element '{self.name}' is missing") from exc
+            raise AttributeError(f'mandatory element {self.name!r} is missing') from exc
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
@@ -1062,7 +1062,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
         data_element.element.text = xml_value
 
     def __delete__(self, instance: XMLElement) -> None:
-        raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
+        raise AttributeError(f'mandatory element {self.name!r} cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
@@ -1218,14 +1218,14 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
             return self
         data_elements = self.values[instance]
         if not data_elements and not self.optional:
-            raise AttributeError(f"mandatory element '{self.name}' is missing")
+            raise AttributeError(f'mandatory element {self.name!r} is missing')
         return DataElementList(self, instance, data_elements)
 
     def __set__(self, instance: XMLElement, values: Iterable[D]) -> None:
         values = list(values)
 
         if not values and not self.optional:
-            raise ValueError(f"mandatory element '{self.name}' must have at least one entry")
+            raise ValueError(f'mandatory element {self.name!r} must have at least one entry')
 
         if not all(isinstance(value, self.type) for value in values):
             raise TypeError(f'values must be of type {self.type.__qualname__}')
@@ -1257,7 +1257,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
 
     def __delete__(self, instance: XMLElement) -> None:
         if not self.optional:
-            raise AttributeError(f"mandatory element '{self.name}' cannot be deleted")
+            raise AttributeError(f'mandatory element {self.name!r} cannot be deleted')
         for data_element in self.values.pop(instance, []):
             instance._etree_element_.remove(data_element.element)
 
