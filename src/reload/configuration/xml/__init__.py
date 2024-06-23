@@ -689,7 +689,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         adapter_name = self.adapter.__qualname__ if self.adapter else None
         return f'{self.__class__.__name__}({self.type.__qualname__}, {name=}, adapter={adapter_name})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             self.name = name
             self.xml_name = self.xml_name or name
@@ -750,7 +750,7 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
         adapter_name = self.adapter.__qualname__ if self.adapter else None
         return f'{self.__class__.__name__}({self.type.__qualname__}, {name=}, default={self.default!r}, adapter={adapter_name})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             self.name = name
             self.xml_name = self.xml_name or name
@@ -798,7 +798,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.type.__name__})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
@@ -865,7 +865,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.type.__name__})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
@@ -937,7 +937,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.type.__name__}, optional={self.optional})'
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
@@ -1297,7 +1297,7 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
             self.xml_parse = value_type
             self.xml_build = str
 
-    def __set_name__(self, owner: type, name: str) -> None:
+    def __set_name__(self, owner: type[XMLElement], name: str) -> None:
         if self.name is None:
             # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
