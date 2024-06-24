@@ -103,13 +103,16 @@ class XMLElement:
     _all_arguments: ClassVar[frozenset[str]]
     _mandatory_arguments: ClassVar[frozenset[str]]
 
+    def __new__(cls, **kw: object) -> Self:
+        if cls._tag_ is None:
+            raise TypeError(f'Cannot instantiate abstract class {cls.__qualname__!r} that does not specify a name and namespace')
+        if not cls._all_arguments.issuperset(kw):
+            raise TypeError(f'got an unexpected keyword argument {next(iter(set(kw) - cls._all_arguments))!r}')
+        if not cls._mandatory_arguments.issubset(kw):
+            raise TypeError(f'missing a required keyword argument {next(iter(cls._mandatory_arguments - set(kw)))!r}')
+        return super().__new__(cls)
+
     def __init__(self, **kw: object) -> None:
-        if self._tag_ is None:
-            raise TypeError(f'Cannot instantiate abstract class {self.__class__.__qualname__!r} that does not specify a name and namespace')
-        if not self._all_arguments.issuperset(kw):
-            raise TypeError(f'got an unexpected keyword argument {next(iter(set(kw) - self._all_arguments))!r}')
-        if not self._mandatory_arguments.issubset(kw):
-            raise TypeError(f'missing a required keyword argument {next(iter(self._mandatory_arguments - set(kw)))!r}')
         self._etree_element_ = etree.Element(self._tag_, nsmap=self._nsmap_)  # type: ignore[arg-type]  # lxml stubs are a mess
         for name, value in kw.items():
             setattr(self, name, value)
@@ -156,7 +159,7 @@ class XMLElement:
 
     @classmethod
     def from_xml(cls, element: ETreeElement) -> Self:
-        instance = cls.__new__(cls)
+        instance = super().__new__(cls)
         instance._etree_element_ = element
         for field in instance._fields_.values():
             field.from_xml(instance)
