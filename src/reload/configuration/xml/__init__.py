@@ -129,7 +129,6 @@ class XMLElement:
                 raise TypeError(f'The namespace specified via class parameter and the "_namespace_" class attribute are different ({namespace!r} != {cls._namespace_!r})')
             cls._namespace_ = namespace
 
-        # TODO @dan: need both name and namespace defined? what are the consequences of not having a namespace?
         if cls._name_ is not None:
             if cls._namespace_ is not None:
                 cls._tag_ = f'{{{cls._namespace_}}}{cls._name_}'
@@ -368,16 +367,6 @@ class UnsignedLongAdapter(IntegerAdapter, bits=64, unsigned=True):
 #     pass
 
 
-# TODO @dan: this is not used review and remove
-class GenericAdapter[T]:
-    xml_parse: Callable[[str], T]
-    xml_build: Callable[[T], str]
-
-    def __init__(self, data_type: Callable[[str], T]) -> None:
-        self.xml_parse = data_type
-        self.xml_build = str
-
-
 class FieldDescriptor[F](ABC):
     name: str | None
     type: type[F]
@@ -390,7 +379,6 @@ class FieldDescriptor[F](ABC):
     @abstractmethod
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        # Load the field's value from an XML etree element  # TODO @dan: decide on docstring
         raise NotImplementedError
 
 
@@ -482,7 +470,7 @@ class MultiDataElementDescriptor[D: XMLData](DataElementDescriptor[D], ABC):
 
 
 @dataclass
-class DataElementValue[D: XMLData]:  # TODO @dan: name and position in file  # noqa: PLW1641
+class DataElementValue[D: XMLData]:  # noqa: PLW1641
     value: D
     element: ETreeElement
 
@@ -650,8 +638,6 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
             self._instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
 
     def remove(self, value: D) -> None:
-        # if not isinstance(value, self._descriptor.type):  # TODO @dan: this is rather redundant (just a speed-up)
-        #     raise ValueError(f'{value!r} is not in {self.__class__.__name__}')
         if not self._descriptor.optional and len(self._elements) == 1 and self._elements[0].value == value:
             raise ValueError(f'the {self._descriptor.name!r} element must have at least one item')
         try:
@@ -697,6 +683,8 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         return f'{self.__class__.__name__}({self.type.__qualname__}, {name=}, adapter={adapter_name})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
             self.name = name
             self.xml_name = self.xml_name or name
@@ -759,6 +747,8 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
         return f'{self.__class__.__name__}({self.type.__qualname__}, {name=}, default={self.default!r}, adapter={adapter_name})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
             self.name = name
             self.xml_name = self.xml_name or name
@@ -807,8 +797,9 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         return f'{self.__class__.__name__}({self.type.__name__})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
@@ -841,8 +832,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         if old_element is not None:
             instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
         else:
-            # TODO @dan: find insertion point
-            instance._etree_element_.append(new_element._etree_element_)
+            instance._etree_element_.append(new_element._etree_element_)  # TODO @dan: find insertion point
         self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -874,8 +864,9 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
         return f'{self.__class__.__name__}({self.type.__name__})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
@@ -908,8 +899,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
             if old_element is not None:
                 instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
             else:
-                # TODO @dan: find insertion point
-                instance._etree_element_.append(new_element._etree_element_)
+                instance._etree_element_.append(new_element._etree_element_)  # TODO @dan: find insertion point
             self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -946,8 +936,9 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         return f'{self.__class__.__name__}({self.type.__name__}, optional={self.optional})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
@@ -1003,7 +994,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         self.values[instance] = [self.type.from_xml(element) for element in elements]
 
 
-class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs xml_name, namespace vs xml_namespace, adapter vs data_adapter
+class DataElement[D: XMLData](DataElementDescriptor[D]):
     def __init__(self, data_type: type[D], /, *, namespace: Namespace | None = None, name: str | None = None, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
         self.type = data_type
@@ -1034,8 +1025,9 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, adapter={adapter_name})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
@@ -1117,8 +1109,9 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, default={self.default!r}, adapter={adapter_name})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
@@ -1206,8 +1199,9 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         return f'{self.__class__.__name__}({self.type.__name__}, namespace={self.xml_namespace!r}, {name=}, optional={self.optional!r}, adapter={adapter_name})'
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
@@ -1306,8 +1300,9 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
             self.xml_build = str
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
+        if not issubclass(owner, XMLElement):  # static type analysis does not catch this
+            raise TypeError(f'Can only use {self.__class__.__qualname__} descriptors on XMLElement objects')
         if self.name is None:
-            # TODO @dan: check that owner is subclass of XMLElement (also check it has name/namespace not None?)
             self.name = name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
