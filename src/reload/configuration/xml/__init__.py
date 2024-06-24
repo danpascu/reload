@@ -725,9 +725,10 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
     def __delete__(self, instance: XMLElement):  # noqa: ANN204
         raise AttributeError(f'mandatory attribute {self.name!r} cannot be deleted')
 
-    def from_xml(self, instance: XMLElement) -> None:  # noqa: ARG002, PLR6301
+    def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        return
+        if self.xml_name not in instance._etree_element_.attrib:
+            raise ValueError(f'Missing mandatory attribute {self.xml_name!r} from {instance._etree_element_.tag!r}')
 
 
 class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
