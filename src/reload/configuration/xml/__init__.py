@@ -1001,7 +1001,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         self.adapter = adapter
 
         if adapter is None:
@@ -1031,7 +1031,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):  # TODO @dan: name vs x
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
@@ -1083,7 +1083,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         self.default = default
         self.adapter = adapter
 
@@ -1114,7 +1114,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
@@ -1172,7 +1172,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         self.type = data_type
         self.xml_name = name or ''
         self.xml_namespace = namespace
-        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+        self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         self.optional = optional
         self.adapter = adapter
 
@@ -1203,7 +1203,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
             self.name = name
             self.xml_name = self.xml_name or name
             self.xml_namespace = self.xml_namespace or owner._namespace_
-            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else f'{self.xml_name}'
+            self.xml_tag = f'{{{self.xml_namespace}}}{self.xml_name}' if self.xml_namespace is not None else self.xml_name
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} descriptor to two different names: {self.name} and {name}')
 
