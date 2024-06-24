@@ -159,6 +159,10 @@ class XMLElement:
 
     @classmethod
     def from_xml(cls, element: ETreeElement) -> Self:
+        if cls._tag_ is None:
+            raise TypeError(f'Cannot instantiate abstract class {cls.__qualname__} that does not specify a name and namespace')
+        if element.tag != cls._tag_:
+            raise TypeError(f'The etree element tag does not match the {cls.__qualname__} element tag: {element.tag!r} != {cls._tag_!r}')
         instance = super().__new__(cls)
         instance._etree_element_ = element
         for field in instance._fields_.values():
