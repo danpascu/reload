@@ -726,11 +726,11 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
         except AttributeError as exc:
             match exc.__cause__:
                 case KeyError(args=(self.xml_name,)):
-                    raise ValueError(f'Missing mandatory attribute {self.xml_name!r} from {instance._tag_!r}') from exc
+                    raise ValueError(f'Missing mandatory attribute {self.xml_name!r} from {instance._qualname_!r}') from exc
                 case _:
                     raise
         except ValueError as exc:
-            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._tag_!r}: {exc!s}') from exc
+            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._qualname_!r}: {exc!s}') from exc
 
 
 class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
@@ -797,7 +797,7 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
         try:
             self.__get__(instance)
         except ValueError as exc:
-            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._tag_!r}: {exc!s}') from exc
+            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._qualname_!r}: {exc!s}') from exc
 
 
 class Element[E: XMLElement](ElementDescriptor[E]):
@@ -860,9 +860,9 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
         if element_count == 0:
-            raise ValueError(f'Missing mandatory element {self.type._tag_!r}')
+            raise ValueError(f'Missing mandatory element {self.type._qualname_!r}')
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.type._tag_!r}')
+            raise ValueError(f'Excess elements for {self.type._qualname_!r}')
         self.values[instance] = self.type.from_xml(elements[0])
 
 
@@ -928,7 +928,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.type._tag_!r}')
+            raise ValueError(f'Excess elements for {self.type._qualname_!r}')
         if element_count == 0:
             value = None
         else:
@@ -1004,7 +1004,7 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         """Fill in the instance's field value from its corresponding etree elements"""
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         if not self.optional and len(elements) == 0:
-            raise ValueError(f'There must be at least 1 element for {self.type._tag_!r}')
+            raise ValueError(f'There must be at least 1 element for {self.type._qualname_!r}')
         self.values[instance] = [self.type.from_xml(element) for element in elements]
 
 
@@ -1085,14 +1085,14 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
         if element_count == 0:
-            raise ValueError(f'Missing mandatory element {self.xml_tag!r}')
+            raise ValueError(f'Missing mandatory element {self.xml_qualname!r}')
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.xml_tag!r}')
+            raise ValueError(f'Excess elements for {self.xml_qualname!r}')
         element = elements[0]
         try:
             self.values[instance] = DataElementValue(self.xml_parse(element.text or ''), element)
         except ValueError as exc:
-            raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
+            raise ValueError(f'Invalid value for element {self.xml_qualname!r}: {exc!s}') from exc
 
 
 class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
@@ -1177,7 +1177,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
         if element_count > 1:
-            raise ValueError(f'Excess elements for {self.xml_tag!r}')
+            raise ValueError(f'Excess elements for {self.xml_qualname!r}')
         if element_count == 0:
             value = None
         else:
@@ -1185,7 +1185,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             try:
                 value = DataElementValue(self.xml_parse(element.text or ''), element)
             except ValueError as exc:
-                raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
+                raise ValueError(f'Invalid value for element {self.xml_qualname!r}: {exc!s}') from exc
         self.values[instance] = value
 
 
@@ -1291,11 +1291,11 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         if not self.optional and len(elements) == 0:
-            raise ValueError(f'There must be at least 1 element for {self.xml_tag!r}')
+            raise ValueError(f'There must be at least 1 element for {self.xml_qualname!r}')
         try:
             self.values[instance] = [DataElementValue(self.xml_parse(element.text or ''), element) for element in elements]
         except ValueError as exc:
-            raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
+            raise ValueError(f'Invalid value for element {self.xml_qualname!r}: {exc!s}') from exc
 
 
 class TextValue[D: XMLData](FieldDescriptor[D]):
@@ -1356,7 +1356,7 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
         try:
             self.__get__(instance)
         except ValueError as exc:
-            raise ValueError(f'Invalid text value for {instance._tag_!r}: {exc!s}') from exc
+            raise ValueError(f'Invalid text value for {instance._qualname_!r}: {exc!s}') from exc
 
 
 class ElementHandler[E: XMLElement](Protocol):
