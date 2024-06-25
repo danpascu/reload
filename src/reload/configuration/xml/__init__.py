@@ -715,8 +715,16 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
 
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        if self.xml_name not in instance._etree_element_.attrib:
-            raise ValueError(f'Missing mandatory attribute {self.xml_name!r} from {instance._etree_element_.tag!r}')
+        try:
+            self.__get__(instance)
+        except AttributeError as exc:
+            match exc.__cause__:
+                case KeyError(args=(self.xml_name,)):
+                    raise ValueError(f'Missing mandatory attribute {self.xml_name!r} from {instance._tag_!r}') from exc
+                case _:
+                    raise
+        except ValueError as exc:
+            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._tag_!r}: {exc!s}') from exc
 
 
 class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
@@ -778,9 +786,12 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
     def __delete__(self, instance: XMLElement) -> None:
         instance._etree_element_.attrib.pop(self.xml_name, '')
 
-    def from_xml(self, instance: XMLElement) -> None:  # noqa: ARG002, PLR6301
+    def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
-        return
+        try:
+            self.__get__(instance)
+        except ValueError as exc:
+            raise ValueError(f'Invalid value for attribute {self.xml_name!r} from {instance._tag_!r}: {exc!s}') from exc
 
 
 class Element[E: XMLElement](ElementDescriptor[E]):
@@ -842,7 +853,6 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
-        # this could be avoided if there is mandatory schema validation
         if element_count == 0:
             raise ValueError(f'Missing mandatory element {self.type._tag_!r}')
         if element_count > 1:
@@ -911,7 +921,6 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
         element_count = len(elements)
-        # this could be avoided if there is mandatory schema validation
         if element_count > 1:
             raise ValueError(f'Excess elements for {self.type._tag_!r}')
         if element_count == 0:
@@ -988,7 +997,6 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree elements"""
         elements = [element for element in instance._etree_element_ if element.tag == self.type._tag_]
-        # this could be avoided if there is mandatory schema validation
         if not self.optional and len(elements) == 0:
             raise ValueError(f'There must be at least 1 element for {self.type._tag_!r}')
         self.values[instance] = [self.type.from_xml(element) for element in elements]
@@ -1068,13 +1076,15 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
-        # this could be avoided if there is mandatory schema validation
         if element_count == 0:
             raise ValueError(f'Missing mandatory element {self.xml_tag!r}')
         if element_count > 1:
             raise ValueError(f'Excess elements for {self.xml_tag!r}')
         element = elements[0]
-        self.values[instance] = DataElementValue(self.xml_parse(element.text or ''), element)
+        try:
+            self.values[instance] = DataElementValue(self.xml_parse(element.text or ''), element)
+        except ValueError as exc:
+            raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
 
 
 class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
@@ -1156,14 +1166,16 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
         element_count = len(elements)
-        # this could be avoided if there is mandatory schema validation
         if element_count > 1:
             raise ValueError(f'Excess elements for {self.xml_tag!r}')
         if element_count == 0:
             value = None
         else:
             element = elements[0]
-            value = DataElementValue(self.xml_parse(element.text or ''), element)
+            try:
+                value = DataElementValue(self.xml_parse(element.text or ''), element)
+            except ValueError as exc:
+                raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
         self.values[instance] = value
 
 
@@ -1266,10 +1278,12 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
     def from_xml(self, instance: XMLElement) -> None:
         """Fill in the instance's field value from its corresponding etree element"""
         elements = [element for element in instance._etree_element_ if element.tag == self.xml_tag]
-        # this could be avoided if there is mandatory schema validation
         if not self.optional and len(elements) == 0:
             raise ValueError(f'There must be at least 1 element for {self.xml_tag!r}')
-        self.values[instance] = [DataElementValue(self.xml_parse(element.text or ''), element) for element in elements]
+        try:
+            self.values[instance] = [DataElementValue(self.xml_parse(element.text or ''), element) for element in elements]
+        except ValueError as exc:
+            raise ValueError(f'Invalid value for element {self.xml_tag!r}: {exc!s}') from exc
 
 
 class TextValue[D: XMLData](FieldDescriptor[D]):
@@ -1327,7 +1341,10 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
         raise AttributeError(f'the value for the {instance.__class__.__name__!r} element cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:
-        pass
+        try:
+            self.__get__(instance)
+        except ValueError as exc:
+            raise ValueError(f'Invalid text value for {instance._tag_!r}: {exc!s}') from exc
 
 
 class ElementHandler[E: XMLElement](Protocol):
