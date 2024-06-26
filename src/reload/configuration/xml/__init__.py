@@ -223,11 +223,13 @@ class AdapterRegistry[T]:
 class BooleanAdapter:
     @staticmethod
     def xml_parse(value: str) -> bool:
-        if value in {'True', 'true', '1'}:
-            return True
-        if value in {'False', 'false', '0'}:
-            return False
-        raise ValueError(f'Invalid boolean value: {value!r}')
+        match value.strip():
+            case 'true' | '1':
+                return True
+            case 'false' | '0':
+                return False
+            case _:
+                raise ValueError(f'Invalid boolean value: {value!r}')
 
     @staticmethod
     def xml_build(value: bool) -> str:  # noqa: FBT001
