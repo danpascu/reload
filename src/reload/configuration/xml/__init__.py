@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from abc import ABC, abstractmethod
+from binascii import a2b_base64 as base64decode
+from binascii import b2a_base64 as base64encode
 from collections.abc import Callable, Iterable, Iterator, MutableMapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -22,7 +24,7 @@ from reload.python.weakref import defaultweakobjectmap, weakobjectmap
 # noinspection PyProtectedMember
 type ETreeElement = etree._Element  # noqa: SLF001
 type NSMap = dict[str | None, str]
-type XMLData = str | int | float | complex | Decimal | bool | datetime | DataConverter
+type XMLData = str | bytes | int | float | complex | Decimal | bool | datetime | DataConverter
 
 NoneType = type(None)  # this one is used at runtime, so it cannot be a type alias
 
@@ -242,8 +244,19 @@ class DatetimeAdapter:
         return value.astimezone(UTC).isoformat()
 
 
+class Base64BinaryAdapter:
+    @staticmethod
+    def xml_parse(value: str) -> bytes:
+        return base64decode(value)
+
+    @staticmethod
+    def xml_build(value: bytes) -> str:
+        return base64encode(value, newline=False).decode('ascii')
+
+
 AdapterRegistry.associate(bool, BooleanAdapter)
 AdapterRegistry.associate(datetime, DatetimeAdapter)
+AdapterRegistry.associate(bytes, Base64BinaryAdapter)
 
 
 class IntegerAdapter:
@@ -679,7 +692,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(data_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = data_type
             self.xml_build = str
 
@@ -751,7 +764,7 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(data_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = data_type
             self.xml_build = str
 
@@ -1028,7 +1041,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(data_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = data_type
             self.xml_build = str
 
@@ -1116,7 +1129,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(data_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = data_type
             self.xml_build = str
 
@@ -1210,7 +1223,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(data_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = data_type
             self.xml_build = str
 
@@ -1321,7 +1334,7 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(value_type, bool | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            assert not issubclass(value_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
             self.xml_parse = value_type
             self.xml_build = str
 
