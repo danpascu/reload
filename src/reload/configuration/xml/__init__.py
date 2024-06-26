@@ -24,7 +24,7 @@ from reload.python.weakref import defaultweakobjectmap, weakobjectmap
 # noinspection PyProtectedMember
 type ETreeElement = etree._Element  # noqa: SLF001
 type NSMap = dict[str | None, str]
-type XMLData = str | bytes | int | float | complex | Decimal | bool | datetime | DataConverter
+type XMLData = str | bytes | int | float | Decimal | bool | datetime | DataConverter
 
 NoneType = type(None)  # this one is used at runtime, so it cannot be a type alias
 
