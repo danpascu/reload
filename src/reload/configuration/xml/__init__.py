@@ -1319,23 +1319,23 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
     xml_build: Callable[[D], str]
     xml_parse: Callable[[str], D]
 
-    def __init__(self, value_type: type[D], /, adapter: DataAdapterType[D] | None = None) -> None:
+    def __init__(self, data_type: type[D], /, adapter: DataAdapterType[D] | None = None) -> None:
         self.name = None
-        self.type = value_type
+        self.type = data_type
         self.adapter = adapter
 
         if adapter is None:
-            if issubclass(value_type, DataConverter):
-                adapter = cast(DataAdapterType[D], value_type)  # A type that implements the DataConverter protocol is its own DataAdapter
+            if issubclass(data_type, DataConverter):
+                adapter = cast(DataAdapterType[D], data_type)  # A type that implements the DataConverter protocol is its own DataAdapter
             else:
-                adapter = AdapterRegistry.get_adapter(value_type)
+                adapter = AdapterRegistry.get_adapter(data_type)
 
         if adapter is not None:
             self.xml_parse = adapter.xml_parse
             self.xml_build = adapter.xml_build
         else:
-            assert not issubclass(value_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
-            self.xml_parse = value_type
+            assert not issubclass(data_type, bool | bytes | datetime | DataConverter)  # noqa: S101 (used by type checkers)
+            self.xml_parse = data_type
             self.xml_build = str
 
     def __set_name__(self, owner: type[XMLElement], name: str) -> None:
