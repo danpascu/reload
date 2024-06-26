@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from datetime import datetime
+from typing import Final
 
 from .xml import (
     AnnotatedXMLElement,
@@ -25,8 +26,8 @@ from .xml import (
 __all__ = 'Overlay', 'Configuration', 'SelfSignedPermitted', 'BootstrapNode', 'RequiredKinds', 'KindBlock', 'Kind', 'KindSignature'  # noqa: RUF022
 
 
-ns_reload = Namespace('urn:ietf:params:xml:ns:p2p:config-base', schema='reload.rng', prefix=None)
-ns_chord = Namespace('urn:ietf:params:xml:ns:p2p:config-chord', schema='reload.rng', prefix='chord')
+ns_reload: Final[Namespace] = Namespace('urn:ietf:params:xml:ns:p2p:config-base', schema='reload.rng', prefix=None)
+ns_chord: Final[Namespace] = Namespace('urn:ietf:params:xml:ns:p2p:config-chord', schema='reload.rng', prefix='chord')
 
 
 class ReloadElement(AnnotatedXMLElement, namespace=ns_reload):
