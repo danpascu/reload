@@ -105,6 +105,7 @@ class Configuration(ReloadElement, name='configuration'):
     configuration_signers: MultiDataElement[str] = MultiDataElement(str, name='configuration-signer', optional=True)
     bad_nodes: MultiDataElement[str] = MultiDataElement(str, name='bad-node', optional=True)
     mandatory_extensions: MultiDataElement[str] = MultiDataElement(str, name='mandatory-extension', optional=True)
+    required_kinds: OptionalElement[RequiredKinds] = OptionalElement(RequiredKinds)
 
 
 class Overlay(ReloadElement, name='overlay'):
