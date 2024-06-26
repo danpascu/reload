@@ -220,6 +220,16 @@ class AdapterRegistry[T]:
         return cls._adapters.get(data_type, None)
 
 
+class Base64BinaryAdapter:
+    @staticmethod
+    def xml_parse(value: str) -> bytes:
+        return base64decode(value)
+
+    @staticmethod
+    def xml_build(value: bytes) -> str:
+        return base64encode(value, newline=False).decode('ascii')
+
+
 class BooleanAdapter:
     @staticmethod
     def xml_parse(value: str) -> bool:
@@ -246,19 +256,9 @@ class DatetimeAdapter:
         return value.astimezone(UTC).isoformat()
 
 
-class Base64BinaryAdapter:
-    @staticmethod
-    def xml_parse(value: str) -> bytes:
-        return base64decode(value)
-
-    @staticmethod
-    def xml_build(value: bytes) -> str:
-        return base64encode(value, newline=False).decode('ascii')
-
-
 AdapterRegistry.associate(bool, BooleanAdapter)
-AdapterRegistry.associate(datetime, DatetimeAdapter)
 AdapterRegistry.associate(bytes, Base64BinaryAdapter)
+AdapterRegistry.associate(datetime, DatetimeAdapter)
 
 
 class IntegerAdapter:
