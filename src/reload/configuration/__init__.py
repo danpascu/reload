@@ -60,7 +60,7 @@ class Kind(ReloadElement, name='kind'):
 
 class KindSignature(ReloadElement, name='kind-signature'):
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
-    value: TextValue[str] = TextValue(str)
+    value: TextValue[bytes] = TextValue(bytes)
 
 
 class KindBlock(ReloadElement, name='kind-block'):
@@ -74,7 +74,7 @@ class RequiredKinds(ReloadElement, name='required-kinds'):
 
 class Signature(ReloadElement, name='signature'):
     algorithm: OptionalAttribute[str] = OptionalAttribute(str, default=None)
-    value: TextValue[str] = TextValue(str)
+    value: TextValue[bytes] = TextValue(bytes)
 
 
 class Configuration(ReloadElement, name='configuration'):
@@ -84,7 +84,7 @@ class Configuration(ReloadElement, name='configuration'):
 
     topology_plugin: OptionalDataElement[str] = OptionalDataElement(str, name='topology-plugin', default='CHORD-RELOAD')
     node_id_length: OptionalDataElement[int] = OptionalDataElement(int, name='node-id-length', default=16, adapter=IntAdapter)
-    root_certs: MultiDataElement[str] = MultiDataElement(str, name='root-cert', optional=True)
+    root_certs: MultiDataElement[bytes] = MultiDataElement(bytes, name='root-cert', optional=True)
     enrollment_servers: MultiDataElement[str] = MultiDataElement(str, name='enrollment-server', optional=True)
     self_signed_permitted: OptionalElement[SelfSignedPermitted] = OptionalElement(SelfSignedPermitted)
     bootstrap_nodes: MultiElement[BootstrapNode] = MultiElement(BootstrapNode, optional=True)
