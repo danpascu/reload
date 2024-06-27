@@ -30,7 +30,7 @@ dependencies = ["aioice", "lxml", "pyopenssl"]
 
 [project.optional-dependencies]
 test = ["pytest >=6.0", "pytest-cov", "trustme"]
-devel = ["reload[test]", "ruff", "mypy@git+https://github.com/python/mypy", "lxml-stubs", "types-pyOpenSSL"]
+devel = ["reload[test]", "flit", "ruff", "mypy@git+https://github.com/python/mypy", "lxml-stubs", "types-pyOpenSSL"]
 
 [tool.flit.sdist]
 include = ["docs/", "tests/"]
