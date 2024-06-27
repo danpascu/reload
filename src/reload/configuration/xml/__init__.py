@@ -4,7 +4,9 @@
 
 from abc import ABC, abstractmethod
 from binascii import a2b_base64 as base64decode
+from binascii import a2b_hex as hexdecode
 from binascii import b2a_base64 as base64encode
+from binascii import b2a_hex as hexencode
 from collections.abc import Callable, Iterable, Iterator, MutableMapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -228,6 +230,16 @@ class Base64BinaryAdapter:
     @staticmethod
     def xml_build(value: bytes) -> str:
         return base64encode(value, newline=False).decode('ascii')
+
+
+class HexBinaryAdapter:
+    @staticmethod
+    def xml_parse(value: str) -> bytes:
+        return hexdecode(value)
+
+    @staticmethod
+    def xml_build(value: bytes) -> str:
+        return hexencode(value).decode('ascii')
 
 
 class BooleanAdapter:
