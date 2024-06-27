@@ -274,7 +274,7 @@ AdapterRegistry.associate(datetime, DatetimeAdapter)
 
 
 class IntegerAdapter:
-    def __init_subclass__(cls, *, min_value: int | None = None, max_value: int | None = None, name: str = 'integer', bits: int | None = None, unsigned: bool = False, **kw) -> None:  # noqa: ANN003
+    def __init_subclass__(cls, *, min_value: int | None = None, max_value: int | None = None, name: str = 'integer', bits: int | None = None, unsigned: bool = False, **kw: object) -> None:
         super().__init_subclass__(**kw)
 
         # Subclasses should specify either min_value/max_value/name or bits/unsigned.
@@ -743,7 +743,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
             raise TypeError(f'value must be of type {self.type.__qualname__}')
         instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
-    def __delete__(self, instance: XMLElement):  # noqa: ANN204
+    def __delete__(self, instance: XMLElement) -> None:
         raise AttributeError(f'mandatory attribute {self.name!r} cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:
