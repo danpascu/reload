@@ -83,7 +83,7 @@ class XMLElement:
     #     ...
     #
     # Note that class parameters use normal names, while class attributes use sunder names to avoid conflicts with
-    # application defined XMLElement attributes and elements.
+    # application defined attributes and elements.
 
     _name_: ClassVar[str | None] = None
     _namespace_: ClassVar[Namespace | None] = None
