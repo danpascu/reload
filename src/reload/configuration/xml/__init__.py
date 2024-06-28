@@ -8,6 +8,7 @@ from binascii import a2b_hex as hexdecode
 from binascii import b2a_base64 as base64encode
 from binascii import b2a_hex as hexencode
 from collections.abc import Callable, Iterable, Iterator, MutableMapping
+from copy import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -163,6 +164,22 @@ class XMLElement:
     def __del__(self) -> None:
         self._etree_element_.clear()
 
+    def __bytes__(self) -> bytes:
+        return self.to_string()
+
+    def __str__(self) -> str:
+        return self.to_string(encoding=None)
+
+    @classmethod
+    def from_file(cls, path: str | Path) -> Self:
+        if isinstance(path, str):
+            path = Path(path)
+        return cls.from_string(path.read_bytes())
+
+    @classmethod
+    def from_string(cls, data: str | bytes) -> Self:
+        return cls.from_xml(etree.XML(data))
+
     @classmethod
     def from_xml(cls, element: ETreeElement) -> Self:
         if cls._tag_ is None:
@@ -174,6 +191,26 @@ class XMLElement:
         for field in instance._fields_.values():
             field.from_xml(instance)
         return instance
+
+    def to_file(self, path: str | Path, *, encoding: str = 'UTF-8') -> None:
+        if isinstance(path, str):
+            path = Path(path)
+        path.write_bytes(self.to_string(encoding=encoding))
+
+    @overload
+    def to_string(self, *, encoding: None, pretty: bool = ..., xml_declaration: bool = ...) -> str: ...
+
+    @overload
+    def to_string(self, *, encoding: str = 'UTF-8', pretty: bool = ..., xml_declaration: bool = ...) -> bytes: ...
+
+    def to_string(self, *, encoding: str | None = 'UTF-8', pretty: bool = True, xml_declaration: bool = True) -> bytes | str:
+        if encoding is None:
+            encoding = 'unicode'
+            xml_declaration = False
+        return etree.tostring(self._etree_element_, encoding=encoding or 'unicode', pretty_print=pretty, xml_declaration=xml_declaration)
+
+    def to_xml(self) -> ETreeElement:
+        return copy(self._etree_element_)
 
 
 @runtime_checkable
