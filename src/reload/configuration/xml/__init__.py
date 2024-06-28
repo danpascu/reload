@@ -203,7 +203,7 @@ class XMLElement:
         if encoding is None:
             encoding = 'unicode'
             xml_declaration = False
-        return etree.tostring(self._etree_element_, encoding=encoding or 'unicode', pretty_print=pretty, xml_declaration=xml_declaration)
+        return etree.tostring(self._etree_element_, encoding=encoding, pretty_print=pretty, xml_declaration=xml_declaration)
 
     def to_xml(self) -> ETreeElement:
         return copy(self._etree_element_)
