@@ -23,7 +23,7 @@ from .xml import (
     UnsignedIntAdapter,
 )
 
-__all__ = 'Overlay', 'Configuration', 'SelfSignedPermitted', 'BootstrapNode', 'RequiredKinds', 'KindBlock', 'Kind', 'KindSignature'  # noqa: RUF022
+__all__ = 'OverlayConfiguration', 'Configuration', 'SelfSignedPermitted', 'BootstrapNode', 'RequiredKinds', 'KindBlock', 'Kind', 'KindSignature'  # noqa: RUF022
 
 
 ns_reload: Final[Namespace] = Namespace('urn:ietf:params:xml:ns:p2p:config-base', schema='reload.rng', prefix=None)
@@ -109,5 +109,5 @@ class Configuration(ReloadElement, name='configuration'):
     required_kinds: OptionalElement[RequiredKinds] = OptionalElement(RequiredKinds)
 
 
-class Overlay(ReloadElement, name='overlay'):
+class OverlayConfiguration(ReloadElement, name='overlay'):
     configurations: MultiElement[Configuration] = MultiElement(Configuration, optional=False)
