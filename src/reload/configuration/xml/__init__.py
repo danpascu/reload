@@ -76,10 +76,6 @@ class RelaxNGValidator:
         return self.schema.validate(element)
 
 
-class XMLDocument:  # TODO @dan: remove XML from name?
-    nsmap: NSMap | None = None
-
-
 class XMLElement:
     # Public attributes. These can either be overwritten by subclasses, or preferably specified via class parameters:
     #
