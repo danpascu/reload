@@ -5,23 +5,8 @@
 from datetime import datetime
 from typing import Final
 
-from .xml import (
-    AnnotatedXMLElement,
-    Attribute,
-    DataElement,
-    Element,
-    IntAdapter,
-    LongAdapter,
-    MultiDataElement,
-    MultiElement,
-    Namespace,
-    OptionalAttribute,
-    OptionalDataElement,
-    OptionalElement,
-    TextValue,
-    UnsignedByteAdapter,
-    UnsignedIntAdapter,
-)
+from .xml import AnnotatedXMLElement, Attribute, DataElement, Element, MultiDataElement, MultiElement, Namespace, OptionalAttribute, OptionalDataElement, OptionalElement, TextValue
+from .xml.datamodel import IntAdapter, LongAdapter, UnsignedByteAdapter, UnsignedIntAdapter
 
 __all__ = 'OverlayConfiguration', 'Configuration', 'SelfSignedPermitted', 'BootstrapNode', 'RequiredKinds', 'KindBlock', 'Kind', 'KindSignature'  # noqa: RUF022
 
