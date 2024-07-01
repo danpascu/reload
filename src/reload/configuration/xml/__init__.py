@@ -50,29 +50,6 @@ class Namespace(str):
         return super().__setattr__(name, value)
 
 
-class Validator(Protocol):
-    def validate(self, element: ETreeElement) -> bool: ...
-
-
-class RelaxNGValidator:
-    schema_directory = Path(__file__).parent / 'schema'
-
-    def __init__(self, schema_file: str) -> None:
-        self.schema_path = self.schema_directory / schema_file
-        self.schema = etree.RelaxNG(file=self.schema_path)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, RelaxNGValidator):
-            return self.schema_path == other.schema_path
-        return NotImplemented
-
-    def __hash__(self) -> int:
-        return hash(self.schema_path)
-
-    def validate(self, element: ETreeElement) -> bool:
-        return self.schema.validate(element)
-
-
 class XMLElement:
     # Public attributes. These can either be overwritten by subclasses, or preferably specified via class parameters:
     #
