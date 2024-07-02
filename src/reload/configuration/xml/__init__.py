@@ -1064,7 +1064,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
         values = list(values)
 
         if not values and not self.optional:
-            raise ValueError(f'mandatory element {self.name!r} must have at least one entry')
+            raise ValueError(f'the {self.name!r} element must have at least one item')
 
         if not all(isinstance(value, self.type) for value in values):
             raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
