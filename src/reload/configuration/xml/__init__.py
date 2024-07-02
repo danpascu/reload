@@ -526,7 +526,7 @@ class Attribute[D: XMLData](AttributeDescriptor[D]):
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
-            raise TypeError(f'value must be of type {self.type.__qualname__}')
+            raise TypeError(f'the {self.name!r} attribute must be of type {self.type.__qualname__}')
         instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -599,7 +599,7 @@ class OptionalAttribute[D: XMLData](OptionalAttributeDescriptor[D]):
             instance._etree_element_.attrib.pop(self.xml_name, '')
         else:
             if not isinstance(value, self.type):
-                raise TypeError(f'value must be of type {self.type.__qualname__}')
+                raise TypeError(f'the {self.name!r} attribute must be of type {self.type.__qualname__}')
             instance._etree_element_.set(self.xml_name, self.xml_build(value))
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -654,11 +654,11 @@ class Element[E: XMLElement](ElementDescriptor[E]):
 
         # to consistently reject value=None, check type before identity
         if type(new_element) is not self.type:
-            raise TypeError(f'element must be of type {self.type.__qualname__}')
+            raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
         if new_element is old_element:
             return
         if new_element._etree_element_.getparent() is not None:
-            raise ValueError(f'element {new_element!r} already belongs to another container')
+            raise ValueError(f'the etree element {new_element!r} for {self.name!r} already belongs to another container')
         if old_element is not None:
             instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
         else:
@@ -722,9 +722,9 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
             if new_element is old_element:
                 return
             if type(new_element) is not self.type:
-                raise TypeError(f'element must be of type {self.type.__qualname__}')
+                raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
             if new_element._etree_element_.getparent() is not None:
-                raise ValueError(f'element {new_element!r} already belongs to another container')
+                raise ValueError(f'the etree element {new_element!r} for {self.name!r} already belongs to another container')
             if old_element is not None:
                 instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
             else:
@@ -797,9 +797,9 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         acceptable_parents = {parent_element, None}  # TODO @dan: is this true (having parent_element in the set)?
         for element in elements:
             if type(element) is not self.type:
-                raise TypeError(f'element must be of type {self.type.__qualname__}')
+                raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
             if element._etree_element_.getparent() not in acceptable_parents:
-                raise ValueError(f'element {element!r} already belongs to another container')
+                raise ValueError(f'the etree element {element!r} for {self.name!r} already belongs to another container')
         # TODO @dan: replace old elements to preserve positions in parent?
         for element in self.values.get(instance, []):
             parent_element.remove(element._etree_element_)
@@ -880,7 +880,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
-            raise TypeError(f'value must be of type {self.type.__qualname__}')
+            raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
         xml_value = self.xml_build(value)
         try:
             data_element = self.values[instance]
@@ -970,7 +970,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             self.values[instance] = value
         else:
             if not isinstance(value, self.type):
-                raise TypeError(f'value must be of type {self.type.__qualname__}')
+                raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
             xml_value = self.xml_build(value)
             data_element = self.values.get(instance, None)
             if data_element is None:
@@ -1067,7 +1067,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
             raise ValueError(f'mandatory element {self.name!r} must have at least one entry')
 
         if not all(isinstance(value, self.type) for value in values):
-            raise TypeError(f'values must be of type {self.type.__qualname__}')
+            raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
 
         # compute these early to catch errors in values to avoid ending up with an inconsistent list of data elements
         xml_values = [self.xml_build(value) for value in values]
@@ -1163,11 +1163,11 @@ class TextValue[D: XMLData](FieldDescriptor[D]):
 
     def __set__(self, instance: XMLElement, value: D) -> None:
         if not isinstance(value, self.type):
-            raise TypeError(f'value must be of type {self.type.__qualname__}')
+            raise TypeError(f'the text value for the {instance.__class__.__qualname__!r} element must be of type {self.type.__qualname__}')
         instance._etree_element_.text = self.xml_build(value)
 
     def __delete__(self, instance: XMLElement) -> None:
-        raise AttributeError(f'the value for the {instance.__class__.__name__!r} element cannot be deleted')
+        raise AttributeError(f'the text value for the {instance.__class__.__qualname__!r} element cannot be deleted')
 
     def from_xml(self, instance: XMLElement) -> None:
         try:
