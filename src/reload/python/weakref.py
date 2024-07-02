@@ -47,7 +47,7 @@ class weakobjectid[T](int):
     def _remove(self, _: ReferenceType) -> None:
         container = self._container_ref()
         if container is not None:
-            del container.__data__[self]
+            container.__data__.pop(self, None)
 
 
 # noinspection PyPep8Naming,PyAbstractClass,PyProtocol
