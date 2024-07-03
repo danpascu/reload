@@ -18,6 +18,26 @@ from reload.python.weakref import defaultweakobjectmap, weakobjectmap
 
 from .datamodel import AdapterRegistry, DataAdapter, DataConverter
 
+__all__ = (  # noqa: RUF022
+    'Namespace',
+
+    'XMLElement',
+    'AnnotatedXMLElement',
+
+    'Attribute',
+    'OptionalAttribute',
+
+    'Element',
+    'OptionalElement',
+    'MultiElement',
+
+    'DataElement',
+    'OptionalDataElement',
+    'MultiDataElement',
+
+    'TextValue',
+)
+
 
 type ETreeElement = etree._Element  # noqa: SLF001
 type NSMap = dict[str | None, str]
