@@ -18,8 +18,6 @@ from reload.python.weakref import defaultweakobjectmap, weakobjectmap
 
 from .datamodel import AdapterRegistry, DataAdapter, DataConverter
 
-# FIX @dan: temporarily disable TODO and commented code ruff warnings
-# ruff: noqa: FIX002
 
 type ETreeElement = etree._Element  # noqa: SLF001
 type NSMap = dict[str | None, str]
@@ -370,7 +368,7 @@ class ElementList[E: XMLElement]:  # noqa: PLW1641
         if len(self._elements) > 1:
             self._elements[-2]._etree_element_.addnext(element._etree_element_)  # add as next sibling of the previous element
         else:
-            self._instance._etree_element_.append(element._etree_element_)  # TODO @dan: find insertion point
+            self._instance._etree_element_.append(element._etree_element_)  # NOTE @dan: find insertion point
 
     def remove(self, element: E) -> None:
         if type(element) is not self._descriptor.type:
@@ -454,7 +452,7 @@ class DataElementList[D: XMLData]:  # noqa: PLW1641
         if len(self._elements) > 1:
             self._elements[-2].element.addnext(data_element.element)  # add as next sibling of the previous element
         else:
-            self._instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
+            self._instance._etree_element_.append(data_element.element)  # NOTE @dan: find insertion point
 
     def remove(self, value: D) -> None:
         if not self._descriptor.optional and len(self._elements) == 1 and self._elements[0].value == value:
@@ -662,7 +660,7 @@ class Element[E: XMLElement](ElementDescriptor[E]):
         if old_element is not None:
             instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
         else:
-            instance._etree_element_.append(new_element._etree_element_)  # TODO @dan: find insertion point
+            instance._etree_element_.append(new_element._etree_element_)  # NOTE @dan: find insertion point
         self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -728,7 +726,7 @@ class OptionalElement[E: XMLElement](OptionalElementDescriptor[E]):
             if old_element is not None:
                 instance._etree_element_.replace(old_element._etree_element_, new_element._etree_element_)
             else:
-                instance._etree_element_.append(new_element._etree_element_)  # TODO @dan: find insertion point
+                instance._etree_element_.append(new_element._etree_element_)  # NOTE @dan: find insertion point
             self.values[instance] = new_element
 
     def __delete__(self, instance: XMLElement) -> None:
@@ -794,16 +792,16 @@ class MultiElement[E: XMLElement](MultiElementDescriptor[E]):
         # FIX @dan: check that ETreeElements are not reused (len(set(e.element for e in elements)) must be the same as len(elements))
         # same goes for ElementList, also check other descriptors and containers.
         parent_element = instance._etree_element_
-        acceptable_parents = {parent_element, None}  # TODO @dan: is this true (having parent_element in the set)?
+        acceptable_parents = {parent_element, None}
         for element in elements:
             if type(element) is not self.type:
                 raise TypeError(f'the {self.name!r} element must be of type {self.type.__qualname__}')
             if element._etree_element_.getparent() not in acceptable_parents:
                 raise ValueError(f'the etree element {element!r} for {self.name!r} already belongs to another container')
-        # TODO @dan: replace old elements to preserve positions in parent?
+        # NOTE @dan: replace old elements to preserve positions in parent?
         for element in self.values.get(instance, []):
             parent_element.remove(element._etree_element_)
-        # TODO @dan: find insertion point
+        # NOTE @dan: find insertion point
         parent_element.extend(element._etree_element_ for element in elements)
         self.values[instance] = elements
 
@@ -886,7 +884,7 @@ class DataElement[D: XMLData](DataElementDescriptor[D]):
             data_element = self.values[instance]
         except KeyError:
             data_element = self.values.setdefault(instance, DataElementValue(value, etree.Element(self.xml_tag)))
-            instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
+            instance._etree_element_.append(data_element.element)  # NOTE @dan: find insertion point
         data_element.value = value
         data_element.element.text = xml_value
 
@@ -975,7 +973,7 @@ class OptionalDataElement[D: XMLData](OptionalDataElementDescriptor[D]):
             data_element = self.values.get(instance, None)
             if data_element is None:
                 data_element = DataElementValue(value, etree.Element(self.xml_tag))
-                instance._etree_element_.append(data_element.element)  # TODO @dan: find insertion point
+                instance._etree_element_.append(data_element.element)  # NOTE @dan: find insertion point
                 self.values[instance] = data_element
             data_element.value = value
             data_element.element.text = xml_value
@@ -1086,7 +1084,7 @@ class MultiDataElement[D: XMLData](MultiDataElementDescriptor[D]):
             if data_elements:
                 position = parent_element.index(data_elements[-1].element) + 1
             else:
-                position = len(parent_element)  # TODO @dan: find insertion point
+                position = len(parent_element)  # NOTE @dan: find insertion point
             parent_element[position:position] = [data_element.element for data_element in extra_elements]
             data_elements.extend(extra_elements)
 

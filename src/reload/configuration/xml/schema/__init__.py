@@ -13,6 +13,8 @@ __all__ = 'RelaxNGValidator', 'Validator'
 type ETreeElement = etree._Element  # noqa: SLF001
 
 
+# NOTE: Review validators and their methods; raise vs boolean return
+
 class Validator(Protocol):
     def validate(self, element: ETreeElement) -> bool: ...
 
