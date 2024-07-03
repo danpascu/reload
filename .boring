@@ -12,6 +12,7 @@
 (^|/)\.mypy_cache($|/)
 (^|/)\.pytest_cache($|/)
 (^|/)\.ruff_cache($|/)
+(^|/)\.venv($|/)
 (^|/)__pycache__($|/)
 \.(pyc|pyo|o|so|orig|rej|prof|bak|BAK|tmp|wpu)$
 
