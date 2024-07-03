@@ -70,6 +70,9 @@ quote-style = "single"
 select = ["ALL"]
 ignore = ["D1", "D202", "D203", "D212", "D400", "CPY001", "EM1", "N818", "SIM108", "TD003", "TRY003"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["INP001", "PLR6301", "S101"]
+
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 
