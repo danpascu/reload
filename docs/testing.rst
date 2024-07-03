@@ -2,17 +2,18 @@
 Testing
 -------
 
-To test the code, create a python virtual environment (using python-3.10 or
-preferably 3.11) and activate it, after which install reload in that virtual
-environment with the test dependencies and run the test-suite:
+To test the code, create a python virtual environment using python-3.12 and
+activate it, after which install reload in that virtual environment with the
+test dependencies and run the test-suite:
 
 .. code-block:: console
 
     $ git clone https://github.com/danpascu/reload.git
     $ cd reload
-    $ mkvirtualenv reload
-    (reload) $ pip install .[test]
-    (reload) $ pytest
+    $ python3.12 -m venv .venv
+    $ source .venv/bin/activate
+    (.venv) $ pip install .[test]
+    (.venv) $ pytest
 
 
 Demo
