@@ -242,7 +242,7 @@ class ICEPeer:
 class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     stun_server: tuple[str, int] | None = 'stun.antisip.com', 3478
 
-    ice_connect_timeout: int = 30   # how long to wait for ice to establish connection #
+    ice_connect_timeout: int = 30   # how long to wait for ice to establish connection
     dtls_hello_timeout: int = 30    # how long the server waits for a client hello
     dtls_shutdown_timeout: int = 3  # how long to wait for confirmation on DTLS shutdown
 
