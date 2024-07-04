@@ -10,7 +10,7 @@ import struct
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Callable, ClassVar, TypeVar
+from typing import Any, ClassVar, Self, overload
 
 from OpenSSL import SSL
 from cryptography.hazmat.bindings.openssl.binding import Binding
@@ -80,38 +80,67 @@ class BadRecord(Exception):
     pass
 
 
-T = TypeVar('T')
+type RecordFieldOwner = Record
 
 
-class RecordHeaderField:
-    _type_handlers = {
-        bytes: lambda x: x,
-        int: lambda x: int.from_bytes(x, byteorder='big'),
-    }
+class RecordHeaderFieldDescriptor:
+    name: str | None
+    size: int
+    _slice: slice
 
-    # noinspection PyShadowingBuiltins
-    def __init__(self, size: int, type: Callable[[bytes], T] = bytes):
+
+class RecordHeaderBytesField(RecordHeaderFieldDescriptor):
+    def __init__(self, size: int) -> None:
         self.name = None
         self.size = size
-        self.type = self._type_handlers.get(type, type)
-        self.slice = None  # will be set from __set_name__
 
-    def __set_name__(self, owner, name):
-        if not hasattr(owner, '__header_fields__'):
-            owner.__header_fields__ = ()
+    def __set_name__(self, owner: type[RecordFieldOwner], name: str) -> None:
         if self.name is None:
             self.name = name
-            self.slice = slice(index := sum(field.size for field in owner.__header_fields__), index + self.size)
-            owner.__header_fields__ += self,
+            self._slice = slice(index := sum(field.size for field in owner._header_fields_), index + self.size)
+            owner._header_fields_ += (self, )
         elif name != self.name:
             raise TypeError(f'cannot assign the same {self.__class__.__name__} to two different names: {self.name} and {name}')
 
-    def __get__(self, instance, owner=None):
+    @overload
+    def __get__(self, instance: None, owner: type[RecordFieldOwner]) -> Self: ...
+
+    @overload
+    def __get__(self, instance: RecordFieldOwner, owner: type[RecordFieldOwner] | None = None) -> bytes: ...
+
+    def __get__(self, instance: RecordFieldOwner | None, owner: type[RecordFieldOwner] | None = None) -> Self | bytes:
         if instance is None:
             return self
         if self.name is None:
             raise TypeError(f'cannot use {self.__class__.__name__} instance without calling __set_name__ on it.')
-        return instance.__dict__.setdefault(self.name, self.type(instance[self.slice]))
+        return instance.__dict__.setdefault(self.name, instance[self._slice])
+
+
+class RecordHeaderIntField(RecordHeaderFieldDescriptor):
+    def __init__(self, size: int) -> None:
+        self.name = None
+        self.size = size
+
+    def __set_name__(self, owner: type[RecordFieldOwner], name: str) -> None:
+        if self.name is None:
+            self.name = name
+            self._slice = slice(index := sum(field.size for field in owner._header_fields_), index + self.size)
+            owner._header_fields_ += (self, )
+        elif name != self.name:
+            raise TypeError(f'cannot assign the same {self.__class__.__name__} to two different names: {self.name} and {name}')
+
+    @overload
+    def __get__(self, instance: None, owner: type[RecordFieldOwner]) -> Self: ...
+
+    @overload
+    def __get__(self, instance: RecordFieldOwner, owner: type[RecordFieldOwner] | None = None) -> int: ...
+
+    def __get__(self, instance: RecordFieldOwner | None, owner: type[RecordFieldOwner] | None = None) -> Self | int:
+        if instance is None:
+            return self
+        if self.name is None:
+            raise TypeError(f'cannot use {self.__class__.__name__} instance without calling __set_name__ on it.')
+        return instance.__dict__.setdefault(self.name, int.from_bytes(instance[self._slice]))
 
 
 class Record(bytes):
@@ -125,36 +154,37 @@ class Record(bytes):
      - payload
     """
 
-    header: ClassVar = struct.Struct('!11xH')
+    _header_struct_: ClassVar[struct.Struct] = struct.Struct('!11xH')
+    _header_fields_: ClassVar[tuple[RecordHeaderFieldDescriptor, ...]] = ()
 
     # All header fields must be specified and they need to be in order,
     # as their position in the header is calculated based on all the
     # other header fields defined before them.
 
-    content_type = RecordHeaderField(size=1, type=int)
-    version = RecordHeaderField(size=2, type=bytes)
-    epoch = RecordHeaderField(size=2, type=int)
-    sequence_no = RecordHeaderField(size=6, type=int)
+    content_type = RecordHeaderIntField(size=1)
+    version = RecordHeaderBytesField(size=2)
+    epoch = RecordHeaderIntField(size=2)
+    sequence_no = RecordHeaderIntField(size=6)
 
-    def __new__(cls, data: bytes, position: int = 0):
+    def __new__(cls, data: bytes, position: int = 0) -> Self:
         if not 0 <= position < len(data):
             raise ValueError('position is outside of the data stream')
         try:
-            payload_length, = cls.header.unpack_from(data, position)
+            payload_length, = cls._header_struct_.unpack_from(data, position)
         except struct.error as exc:
             raise BadRecord('invalid DTLS record header') from exc
-        if position + cls.header.size + payload_length > len(data):
+        if position + cls._header_struct_.size + payload_length > len(data):
             raise BadRecord('record too short')
-        record_length = cls.header.size + payload_length
-        record = data[position:position+record_length]
+        record_length = cls._header_struct_.size + payload_length
+        record = data[position : position + record_length]
         return super().__new__(cls, record)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<{self.__class__.__name__}: content_type={self.content_type}, version={self.version.hex()}, epoch={self.epoch}, sequence_no={self.sequence_no}, payload={self.payload!r}>'
 
     @property
-    def payload(self):
-        return self[self.header.size:]
+    def payload(self) -> bytes:
+        return self[self._header_struct_.size:]
 
 
 class Packetizer:
