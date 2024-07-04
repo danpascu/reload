@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from .common import *
-from .dtls import *
+from .common import NodeIdentity
+from .dtls import BadRecord, DTLSEndpoint, ICEPeer, Purpose
 
-__all__ = common.__all__ + dtls.__all__
+__all__ = 'BadRecord', 'DTLSEndpoint', 'ICEPeer', 'NodeIdentity', 'Purpose'

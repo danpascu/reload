@@ -6,21 +6,20 @@ import asyncio
 import contextlib
 import enum
 import struct
-
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, ClassVar, Self, cast, overload
 
-from OpenSSL import SSL
 from aioice.ice import Connection as ICEConnection
 from cryptography.hazmat.bindings.openssl.binding import Binding
+from OpenSSL import SSL
 
 from reload import aio
+
 from .common import NodeIdentity
 
-
-__all__ = 'DTLSEndpoint', 'Purpose', 'ICEPeer', 'BadRecord'
+__all__ = 'DTLSEndpoint', 'Purpose', 'ICEPeer', 'BadRecord'  # noqa: RUF022
 
 
 binding = Binding()
@@ -33,10 +32,11 @@ OPTIMAL_MTU = 1500 - 48
 MINIMAL_MTU = 576 - 28
 
 
-# noinspection PyAbstractClass
 class DTLSConnection(SSL.Connection):
     def bio_pending(self) -> int:
         """
+        Get the amount of data that can be read from the BIO.
+
         Call the OpenSSL function BIO_get_mem_data with a NULL pointer
         on the outgoing BIO, to obtain the amount of data in the BIO.
         See the OpenSSL manual for more details.
@@ -44,12 +44,14 @@ class DTLSConnection(SSL.Connection):
         :return: how many bytes are available to read from the BIO
         """
         if self._from_ssl is None:
-            raise TypeError("Connection sock was not None")
+            raise TypeError('Connection sock was not None')
 
         return _lib.BIO_get_mem_data(self._from_ssl, _ffi.NULL)
 
     def get_dtls_timeout(self) -> float | None:
         """
+        Get the DTLS timeout for the current operation.
+
         Call the OpenSSL function DTLSv1_get_timeout on this connection.
         See the OpenSSL manual for more details.
 
@@ -63,6 +65,8 @@ class DTLSConnection(SSL.Connection):
 
     def handle_dtls_timeout(self) -> bool:
         """
+        Handle retransmissions after a timeout during the DTLS handshake.
+
         Call the OpenSSL function DTLSv1_handle_timeout on this connection.
         See the OpenSSL manual for more details.
 
@@ -147,7 +151,9 @@ class RecordHeaderIntField(RecordHeaderFieldDescriptor):
 
 class Record(bytes):
     """
-    Representation of a DTLS record which has the following structure:
+    Byte representation of a DTLS record.
+
+    The record has the following structure:
      - 1 byte content type
      - 2 bytes version
      - 2 bytes epoch
@@ -191,6 +197,8 @@ class Record(bytes):
 
 class Packetizer:
     """
+    Split a byte stream into groups of packets that honor to the MTU.
+
     Take the byte stream produced by OpenSSL and split it into individual
     DTLS records. When iterated, the packetizer combines the DTLS records
     to create network packets according to the specified MTU.
@@ -231,14 +239,15 @@ class ICEPeer:
     candidates: list
 
 
-class DTLSEndpoint:  # todo: rename to DTLSLink?
-    stun_server = 'stun.antisip.com', 3478
+class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
+    stun_server: tuple[str, int] | None = 'stun.antisip.com', 3478
 
-    ice_connect_timeout = 30   # how long to wait for ice to establish connection #
-    dtls_hello_timeout = 30    # how long the server waits for a client hello
-    dtls_shutdown_timeout = 3  # how long to wait for confirmation on DTLS shutdown
+    ice_connect_timeout: int = 30   # how long to wait for ice to establish connection #
+    dtls_hello_timeout: int = 30    # how long the server waits for a client hello
+    dtls_shutdown_timeout: int = 3  # how long to wait for confirmation on DTLS shutdown
 
-    max_packet_size = 16384
+    max_packet_size: int = 16384
+    max_retransmissions: int = 2
 
     def __init__(self, purpose: Purpose, identity: NodeIdentity, *, mtu: int = OPTIMAL_MTU) -> None:
         if type(purpose) is not Purpose:
@@ -253,7 +262,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         self._closed = False
         self._purpose = purpose
         self._receiver_task: asyncio.Task | None = None
-        self.mtu = mtu  # todo: rename to handshake_mtu/link_mtu?
+        self.mtu = mtu  # NOTE @dan: rename to handshake_mtu/link_mtu?
 
     @property
     def mtu(self) -> int:
@@ -281,9 +290,8 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
     async def prepare(self) -> None:
         await self.ice.gather_candidates()
 
-    async def connect(self, ice_peer: ICEPeer) -> None:
-        # todo: split into _connect_ice() and _do_dtls_handshake()? (need to cleanup in case of error while connecting (CM or try/except))
-        async with self._connect_lock:
+    async def connect(self, ice_peer: ICEPeer) -> None:  # noqa: C901, PLR0912
+        async with self._connect_lock:  # noqa: PLR1702
             if self._closed:
                 raise aio.ClosedResourceError
 
@@ -294,11 +302,10 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
 
             for candidate in ice_peer.candidates:
                 await self.ice.add_remote_candidate(candidate)
-            # noinspection PyTypeChecker
             await self.ice.add_remote_candidate(None)
             self.ice.remote_username = ice_peer.username
             self.ice.remote_password = ice_peer.password
-            async with aio.timeout(self.ice_connect_timeout):  # todo: is this needed? it will timeout after a while (60 seconds or longer and it will raise ConnectionError)
+            async with aio.timeout(self.ice_connect_timeout):  # NOTE @dan: is this needed? it will timeout after a while (60 seconds or longer and it will raise ConnectionError)
                 await self.ice.connect()
 
             # Do the DTLS handshake
@@ -325,13 +332,13 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
                     self.dtls.do_handshake()
                 except SSL.WantReadError:
                     await self._send_pending_data()
-                    transmissions = 1  # todo: decide if 2 transmissions or 2 retransmissions
+                    transmissions = 1  # NOTE @dan: decide if 2 transmissions or 2 retransmissions
                     while True:
                         try:
                             async with aio.timeout(self.dtls.get_dtls_timeout()):
                                 data = await self.ice.recv()
-                        except asyncio.TimeoutError:
-                            if transmissions == 2:
+                        except TimeoutError:
+                            if transmissions == self.max_retransmissions:  # use max_retransmissions+1 for retransmissions
                                 self.mtu = MINIMAL_MTU
                             if self.dtls.handle_dtls_timeout():
                                 transmissions += 1
@@ -355,13 +362,12 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             if self._connected:
                 self.dtls.shutdown()
                 await self._send_pending_data()
-                assert self._receiver_task is not None  # noqa: S101  # used by static type checkers
+                assert self._receiver_task is not None  # noqa: S101 (used by type checkers)
                 # without DTLS shutdown confirmation from the peer, _receiver_task won't terminate.
                 # this can happen because of a bad peer implementation or packet loss.
                 with contextlib.suppress(asyncio.TimeoutError):
                     async with aio.timeout(self.dtls_shutdown_timeout):
                         await self._receiver_task
-                # self._receiver_task = None
             else:
                 await self.ice.close()  # safety net in case connect() failed/was cancelled halfway through.
 
@@ -372,11 +378,11 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             raise aio.ResourceNotConnectedError
         try:
             return await self._channel.receive()
-        except aio.EndOfChannel:
-            raise aio.ClosedResourceError
+        except aio.EndOfChannel as exc:
+            raise aio.ClosedResourceError from exc
 
     async def send(self, message: bytes) -> None:
-        # todo: need some send lock to keep all packets in a volley together?
+        # NOTE @dan: need some send lock to keep all packets in a volley together?
         if self._closed:
             raise aio.ClosedResourceError
         if not self._connected:
@@ -403,7 +409,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
                         await self._send_pending_data()
                         break
                     except SSL.Error:
-                        # todo: what to do about this? fail or ignore? (note: after SSL.Error DTLS shutdown should not be attempted)
+                        # NOTE @dan: what to do about this? fail or ignore? (note: after SSL.Error DTLS shutdown should not be attempted)
                         pass
                     else:
                         await self._channel.send(data)
@@ -418,7 +424,6 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             data = self.dtls.bio_read(pending)
             for packet in Packetizer(data, mtu=self.mtu):
                 await self.ice.send(cast(bytes, packet))
-            # print(f'sent {pending} bytes from {self.dtls}')
 
     async def __aenter__(self) -> Self:
         if not self._connected:
@@ -434,5 +439,5 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
     async def __anext__(self) -> bytes:
         try:
             return await self.receive()
-        except aio.ClosedResourceError:
-            raise StopAsyncIteration
+        except aio.ClosedResourceError as exc:
+            raise StopAsyncIteration from exc
