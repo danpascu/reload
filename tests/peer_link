@@ -108,7 +108,7 @@ class TestClient:
     # noinspection DuplicatedCode
     async def run(self):
         try:
-            async with aio.timeout(3):
+            async with asyncio.timeout(3):
                 reader, writer = await asyncio.open_connection(self.host, self.port, ssl=self.ssl_context, ssl_handshake_timeout=1)
         except asyncio.TimeoutError:
             print(f'connection did timeout')

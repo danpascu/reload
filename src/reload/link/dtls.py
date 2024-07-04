@@ -305,7 +305,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
             await self.ice.add_remote_candidate(None)
             self.ice.remote_username = ice_peer.username
             self.ice.remote_password = ice_peer.password
-            async with aio.timeout(self.ice_connect_timeout):  # NOTE @dan: is this needed? it will timeout after a while (60 seconds or longer and it will raise ConnectionError)
+            async with asyncio.timeout(self.ice_connect_timeout):  # NOTE @dan: is this needed? it will timeout after a while (60 seconds or longer and it will raise ConnectionError)
                 await self.ice.connect()
 
             # Do the DTLS handshake
@@ -313,7 +313,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
             if self._purpose is Purpose.AttachRequest:
                 # The endpoint sending the attach request will be the TLS server
                 self.dtls.set_accept_state()
-                async with aio.timeout(self.dtls_hello_timeout):
+                async with asyncio.timeout(self.dtls_hello_timeout):
                     while True:
                         data = await self.ice.recv()
                         self.dtls.bio_write(data)
@@ -335,7 +335,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                     transmissions = 1  # NOTE @dan: decide if 2 transmissions or 2 retransmissions
                     while True:
                         try:
-                            async with aio.timeout(self.dtls.get_dtls_timeout()):
+                            async with asyncio.timeout(self.dtls.get_dtls_timeout()):
                                 data = await self.ice.recv()
                         except TimeoutError:
                             if transmissions == self.max_retransmissions:  # use max_retransmissions+1 for retransmissions
@@ -366,7 +366,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                 # without DTLS shutdown confirmation from the peer, _receiver_task won't terminate.
                 # this can happen because of a bad peer implementation or packet loss.
                 with contextlib.suppress(asyncio.TimeoutError):
-                    async with aio.timeout(self.dtls_shutdown_timeout):
+                    async with asyncio.timeout(self.dtls_shutdown_timeout):
                         await self._receiver_task
             else:
                 await self.ice.close()  # safety net in case connect() failed/was cancelled halfway through.

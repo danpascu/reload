@@ -4,6 +4,5 @@
 
 from .channel import *
 from .exceptions import *
-from .timeouts import *
 
-__all__ = channel.__all__ + exceptions.__all__ + timeouts.__all__
+__all__ = channel.__all__ + exceptions.__all__
