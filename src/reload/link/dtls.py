@@ -3,16 +3,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
-import aioice
 import contextlib
 import enum
 import struct
 
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, ClassVar, Self, overload
+from typing import Any, ClassVar, Self, cast, overload
 
 from OpenSSL import SSL
+from aioice.ice import Connection as ICEConnection
 from cryptography.hazmat.bindings.openssl.binding import Binding
 
 from reload import aio
@@ -26,6 +26,7 @@ binding = Binding()
 _ffi: Any = binding.ffi
 _lib: Any = binding.lib
 
+SSL_OP_NO_RENEGOTIATION: int = _lib.SSL_OP_NO_RENEGOTIATION
 
 OPTIMAL_MTU = 1500 - 48
 MINIMAL_MTU = 576 - 28
@@ -243,7 +244,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             raise TypeError('purpose needs to be of type Purpose')
         ice_controlling = purpose is Purpose.AttachRequest
         self.identity = identity
-        self.ice = aioice.Connection(ice_controlling=ice_controlling, stun_server=self.stun_server)
+        self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
         self.dtls = DTLSConnection(self.get_dtls_context(identity))
         self._channel = aio.Channel(10)
         self._connect_lock = asyncio.Lock()
@@ -270,7 +271,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
     @lru_cache
     def get_dtls_context(identity: NodeIdentity):
         context = SSL.Context(SSL.DTLS_METHOD)
-        context.set_options(SSL.OP_NO_QUERY_MTU | SSL.OP_NO_RENEGOTIATION)
+        context.set_options(SSL.OP_NO_QUERY_MTU | SSL_OP_NO_RENEGOTIATION)
         context.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT)
         identity.configure(context)
         context.check_privatekey()
@@ -353,6 +354,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             if self._connected:
                 self.dtls.shutdown()
                 await self._send_pending_data()
+                assert self._receiver_task is not None  # noqa: S101  # used by static type checkers
                 # without DTLS shutdown confirmation from the peer, _receiver_task won't terminate.
                 # this can happen because of a bad peer implementation or packet loss.
                 with contextlib.suppress(asyncio.TimeoutError):
@@ -414,7 +416,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         if pending > 0:
             data = self.dtls.bio_read(pending)
             for packet in Packetizer(data, mtu=self.mtu):
-                await self.ice.send(packet)
+                await self.ice.send(cast(bytes, packet))
             # print(f'sent {pending} bytes from {self.dtls}')
 
     async def __aenter__(self):
