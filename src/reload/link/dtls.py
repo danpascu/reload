@@ -13,14 +13,18 @@ from functools import lru_cache
 from typing import Callable, ClassVar, TypeVar
 
 from OpenSSL import SSL
-# noinspection PyProtectedMember
-from OpenSSL.SSL import _ffi, _lib  # type: ignore
+from cryptography.hazmat.bindings.openssl.binding import Binding
 
 from reload import aio
 from .common import NodeIdentity
 
 
 __all__ = 'DTLSEndpoint', 'Purpose', 'ICEPeer', 'BadRecord'
+
+
+binding = Binding()
+_ffi: Any = binding.ffi
+_lib: Any = binding.lib
 
 
 OPTIMAL_MTU = 1500 - 48
