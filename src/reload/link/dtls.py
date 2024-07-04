@@ -7,6 +7,7 @@ import contextlib
 import enum
 import struct
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, ClassVar, Self, cast, overload
@@ -196,7 +197,7 @@ class Packetizer:
     The original DTLS records are available through the records attribute.
     """
 
-    def __init__(self, data: bytes, mtu: int):
+    def __init__(self, data: bytes, mtu: int) -> None:
         records = []
         position = 0
         while position < len(data):
@@ -206,7 +207,7 @@ class Packetizer:
         self.records = records
         self.mtu = mtu
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[bytearray]:
         packet = bytearray()
         for record in self.records:
             if not packet or len(packet) + len(record) <= self.mtu:
@@ -239,7 +240,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
 
     max_packet_size = 16384
 
-    def __init__(self, purpose: Purpose, identity: NodeIdentity, *, mtu=OPTIMAL_MTU):
+    def __init__(self, purpose: Purpose, identity: NodeIdentity, *, mtu: int = OPTIMAL_MTU) -> None:
         if type(purpose) is not Purpose:
             raise TypeError('purpose needs to be of type Purpose')
         ice_controlling = purpose is Purpose.AttachRequest
@@ -255,21 +256,21 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         self.mtu = mtu  # todo: rename to handshake_mtu/link_mtu?
 
     @property
-    def mtu(self):
+    def mtu(self) -> int:
         return self.__dict__['mtu']
 
     @mtu.setter
-    def mtu(self, value):
+    def mtu(self, value: int) -> None:
         self.__dict__['mtu'] = value
         self.dtls.set_ciphertext_mtu(value)
 
     @property
-    def data_mtu(self):
+    def data_mtu(self) -> int:
         return self.dtls.get_cleartext_mtu()
 
     @staticmethod
     @lru_cache
-    def get_dtls_context(identity: NodeIdentity):
+    def get_dtls_context(identity: NodeIdentity) -> SSL.Context:
         context = SSL.Context(SSL.DTLS_METHOD)
         context.set_options(SSL.OP_NO_QUERY_MTU | SSL_OP_NO_RENEGOTIATION)
         context.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT)
@@ -277,10 +278,10 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         context.check_privatekey()
         return context
 
-    async def prepare(self):
+    async def prepare(self) -> None:
         await self.ice.gather_candidates()
 
-    async def connect(self, ice_peer: ICEPeer):
+    async def connect(self, ice_peer: ICEPeer) -> None:
         # todo: split into _connect_ice() and _do_dtls_handshake()? (need to cleanup in case of error while connecting (CM or try/except))
         async with self._connect_lock:
             if self._closed:
@@ -346,7 +347,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             self._connected = True
             self._receiver_task = asyncio.create_task(self._receiver_loop())
 
-    async def close(self):
+    async def close(self) -> None:
         async with self._connect_lock:
             if self._closed:
                 return
@@ -364,7 +365,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             else:
                 await self.ice.close()  # safety net in case connect() failed/was cancelled halfway through.
 
-    async def receive(self):
+    async def receive(self) -> bytes:
         # if self._closed:
         #     raise aio.ClosedResourceError
         if not self._connected:
@@ -374,7 +375,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         except aio.EndOfChannel:
             raise aio.ClosedResourceError
 
-    async def send(self, message):
+    async def send(self, message: bytes) -> None:
         # todo: need some send lock to keep all packets in a volley together?
         if self._closed:
             raise aio.ClosedResourceError
@@ -383,7 +384,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
         self.dtls.send(message)
         await self._send_pending_data()
 
-    async def _receiver_loop(self):
+    async def _receiver_loop(self) -> None:
         # the receiver loop will run until it receives a DTLS shutdown or the ICE connection ends/breaks.
         try:
             with self._channel:
@@ -411,7 +412,7 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
             await self.ice.close()
             await self._channel
 
-    async def _send_pending_data(self):
+    async def _send_pending_data(self) -> None:
         pending = self.dtls.bio_pending()
         if pending > 0:
             data = self.dtls.bio_read(pending)
@@ -419,18 +420,18 @@ class DTLSEndpoint:  # todo: rename to DTLSLink?
                 await self.ice.send(cast(bytes, packet))
             # print(f'sent {pending} bytes from {self.dtls}')
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         if not self._connected:
             raise aio.ResourceNotConnectedError
         return self
 
-    async def __aexit__(self, exc_type, exc_value, exc_traceback):
+    async def __aexit__(self, exc_type: object, exc_value: object, exc_traceback: object) -> None:
         await self.close()
 
-    def __aiter__(self):
+    def __aiter__(self) -> Self:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> bytes:
         try:
             return await self.receive()
         except aio.ClosedResourceError:
