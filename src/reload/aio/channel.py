@@ -10,7 +10,7 @@ from typing import Any, Final, Literal, Self
 
 from . import exceptions
 
-__all__ = 'Channel',  # noqa: COM818
+__all__ = 'Channel', 'unlimited'
 
 
 class WaiterQueue[T](deque[T]):
