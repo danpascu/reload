@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 
-__all__ = 'WouldBlock', 'ResourceNotConnectedError', 'ClosedResourceError', 'BrokenResourceError', 'EndOfChannel'
+__all__ = 'BrokenResourceError', 'ClosedResourceError', 'EndOfChannel', 'ResourceNotConnectedError', 'WouldBlock'
 
 
 class WouldBlock(Exception):
@@ -16,7 +16,6 @@ class ResourceNotConnectedError(Exception):
 
     This applies to resources that need to be connected in order to operate,
     like for example a network connection.
-
     """
 
 
@@ -32,7 +31,6 @@ class ClosedResourceError(Exception):
     failure, or a remote peer that closed their end of a connection - should
     raise a different exception type, like :exc:`BrokenResourceError` or an
     :exc:`OSError` subclass.
-
     """
 
 
@@ -48,15 +46,12 @@ class BrokenResourceError(Exception):
 
     This exception's ``__cause__`` attribute will often contain more
     information about the underlying error.
-
     """
 
 
 class EndOfChannel(Exception):
     """
-    Raised when trying to receive from an :class:`aio.Channel` that has no
-    more data to receive.
+    Raised when trying to receive from a channel that has no more data to receive.
 
     This is similar to the "end-of-file" condition, but for channels.
-
     """
