@@ -256,7 +256,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         self.identity = identity
         self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
         self.dtls = DTLSConnection(self.get_dtls_context(identity))
-        self._channel = aio.Channel(10)
+        self._channel = aio.Channel[bytes](10)
         self._connect_lock = asyncio.Lock()
         self._connected = False
         self._closed = False
