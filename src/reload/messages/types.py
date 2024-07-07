@@ -13,8 +13,8 @@ from typing import cast, TypeVar
 
 
 __all__ = (
-    # constants  # todo: expose this?
-    'RELOAD_VERSION',
+    # constants
+    'RELOAD_VERSION',  # REVIEW @dan: expose this?
 
     # abstract types
     'Element',
@@ -203,7 +203,7 @@ uint64 = Unsigned64
 uint128 = Unsigned128
 
 
-# todo: bool cannot be subclassed. decide how to handle this (define an enum or use uint8 or just bool.to_bytes(1, 'big'))
+# TODO @dan: bool cannot be subclassed. decide how to handle this (define an enum or use uint8 or just bool.to_bytes(1, 'big'))
 
 
 # Enumeration and flag types
@@ -469,7 +469,7 @@ opaque32 = Opaque32
 # token = bytearray(b'RELO')
 # token[0] |= 0b1000_0000
 
-class ReloToken(FixedBytes, value=b'\xd2ELO'):  # todo: turn this into a constant (we do not use its from_wire/to_wire capabilities)
+class ReloToken(FixedBytes, value=b'\xd2ELO'):  # REVIEW @dan: turn this into a constant (we do not use its from_wire/to_wire capabilities)
     pass
 
 
@@ -521,7 +521,7 @@ class List(list):
         return super().__new__(cls, iterable)
 
     def __init__(self, iterable=(), /):
-        self._validate(iterable)  # todo: decide if to validate or not
+        self._validate(iterable)  # REVIEW @dan: decide if to validate or not
         super().__init__(iterable)
 
     def __repr__(self):
@@ -654,7 +654,7 @@ class StructureField:
     # noinspection PyShadowingBuiltins
     def __init__(self, type, *, key_field=None, default=None):
         if key_field is None:
-            if not issubclass(type, (Element, bool)):  # todo: deal with bool
+            if not issubclass(type, (Element, bool)):  # TODO @dan: deal with bool
                 raise TypeError(f'Invalid type for {self.__class__.__name__}: must be an Element subclass.')
         else:
             if not isinstance(key_field, StructureField):
@@ -1012,9 +1012,9 @@ class CertificateHash(SimpleStructure):
     certificate_hash = StructureField(type=Opaque8)
 
 
-class CertificateHashNodeID(SimpleStructure):  # todo: merge this with the one above, or give them different __init__ methods?
+class CertificateHashNodeID(SimpleStructure):  # TODO @dan: merge this with the one above, or give them different __init__ methods?
     hash_algorithm = StructureField(type=HashAlgorithm)
-    certificate_node_id_hash = StructureField(type=Opaque8)  # todo: rename to certificate_hash?
+    certificate_node_id_hash = StructureField(type=Opaque8)  # REVIEW @dan: rename to certificate_hash?
 
 
 class Empty(SimpleStructure):
@@ -1144,7 +1144,7 @@ class NodeIDList(VariableLengthList, item_type=NodeID, maxsize=2**16-1):
 
 class ChordLeaveData(SimpleStructure):
     type = StructureField(type=ChordLeaveType)
-    node_list = StructureField(type=NodeIDList)  # todo: name: node_list vs nodes
+    node_list = StructureField(type=NodeIDList)  # REVIEW @dan: name: node_list vs nodes
 
 
 # High level structures
@@ -1202,7 +1202,7 @@ class ForwardingHeader:
                  options: Iterable = (),
                  max_response_length: int = 0
                  ):
-        self.overlay = overlay  # todo: rename this to overlay_id?
+        self.overlay = overlay  # REVIEW @dan: rename this to overlay_id?
         self.configuration_sequence = configuration_sequence
         self.version = version
         self.ttl = ttl
