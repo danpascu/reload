@@ -2,14 +2,14 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-import abc
 import enum
 import hashlib
 import random
 import struct
 
+from abc import abstractmethod
 from collections.abc import Iterable
-from typing import cast, TypeVar
+from typing import Protocol, Self, cast, TypeVar, runtime_checkable
 
 
 __all__ = (
@@ -103,28 +103,22 @@ RELOAD_VERSION = 10  # The version of the RELOAD protocol being implemented time
 RELO_TOKEN = b'\xd2ELO'  # 'RELO' with the high bit of the 1st character set to 1
 
 
-# noinspection PyUnresolvedReferences
-class Element(metaclass=abc.ABCMeta):
+@runtime_checkable
+class Element(Protocol):
     """Abstract class that defines the interface for RELOAD message elements"""
 
     @classmethod
-    @abc.abstractmethod
-    def from_wire(cls, buffer: bytes, offset=0):
+    @abstractmethod
+    def from_wire(cls, buffer: bytes, offset: int = 0) -> Self:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def to_wire(self):
+    @abstractmethod
+    def to_wire(self) -> bytes:
         raise NotImplementedError
 
-    @abc.abstractmethod
-    def wire_length(self):
+    @abstractmethod
+    def wire_length(self) -> int:
         raise NotImplementedError
-
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        if cls is Element and all(callable(getattr(subclass, method, None)) for method in cls.__abstractmethods__):
-            return True
-        return NotImplemented
 
 
 T = TypeVar('T')
