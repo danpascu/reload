@@ -15,7 +15,7 @@ class TestTypes(unittest.TestCase):
         self.assertTrue(issubclass(Enum, Element))
         self.assertTrue(issubclass(Flag, Element))
         self.assertTrue(issubclass(Opaque, Element))
-        self.assertTrue(issubclass(FixedBytes, Element))
+        self.assertTrue(issubclass(LiteralBytes, Element))
         self.assertTrue(issubclass(FixedSize, Element))
         self.assertTrue(issubclass(List, Element))
         self.assertTrue(issubclass(VariableLengthList, Element))

@@ -21,7 +21,7 @@ __all__ = (
     'UnsignedInteger',
     'Enum',
     'Flag',
-    'FixedBytes',
+    'LiteralBytes',
     'FixedSize',
     'Opaque',
     'List',
@@ -330,7 +330,7 @@ class ChordLeaveType(Enum):
 
 # Byte strings
 
-class FixedBytes(bytes):
+class LiteralBytes(bytes):
     __instance__ = None
 
     def __init_subclass__(cls, **kw):
@@ -463,7 +463,7 @@ opaque32 = Opaque32
 # token = bytearray(b'RELO')
 # token[0] |= 0b1000_0000
 
-class ReloToken(FixedBytes, value=b'\xd2ELO'):  # REVIEW @dan: turn this into a constant (we do not use its from_wire/to_wire capabilities)
+class ReloToken(LiteralBytes, value=b'\xd2ELO'):  # REVIEW @dan: turn this into a constant (we do not use its from_wire/to_wire capabilities)
     pass
 
 
