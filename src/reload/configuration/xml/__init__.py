@@ -216,7 +216,7 @@ class FieldDescriptor[F](ABC):
         raise NotImplementedError
 
 
-class AttributeDescriptor[D: XMLData](FieldDescriptor[D], ABC):
+class AttributeDescriptor[D: XMLData](FieldDescriptor[D]):
     name: str | None
     type: type[D]
 
@@ -232,7 +232,7 @@ class AttributeDescriptor[D: XMLData](FieldDescriptor[D], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type)
 
 
-class OptionalAttributeDescriptor[D: XMLData](AttributeDescriptor[D], ABC):
+class OptionalAttributeDescriptor[D: XMLData](AttributeDescriptor[D]):
     default: D | None
 
     @property
@@ -241,7 +241,7 @@ class OptionalAttributeDescriptor[D: XMLData](AttributeDescriptor[D], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type | None, default=self.default)
 
 
-class ElementDescriptor[E: XMLElement](FieldDescriptor[E], ABC):
+class ElementDescriptor[E: XMLElement](FieldDescriptor[E]):
     name: str | None
     type: type[E]
 
@@ -251,14 +251,14 @@ class ElementDescriptor[E: XMLElement](FieldDescriptor[E], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type)
 
 
-class OptionalElementDescriptor[E: XMLElement](ElementDescriptor[E], ABC):
+class OptionalElementDescriptor[E: XMLElement](ElementDescriptor[E]):
     @property
     def signature_parameter(self) -> Parameter:
         assert self.name is not None  # noqa: S101 (used by type checkers)
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type | None, default=None)
 
 
-class MultiElementDescriptor[E: XMLElement](ElementDescriptor[E], ABC):
+class MultiElementDescriptor[E: XMLElement](ElementDescriptor[E]):
     optional: bool
 
     @property
@@ -267,7 +267,7 @@ class MultiElementDescriptor[E: XMLElement](ElementDescriptor[E], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=Iterable[self.type], default=() if self.optional else Parameter.empty)  # type: ignore[name-defined]
 
 
-class DataElementDescriptor[D: XMLData](FieldDescriptor[D], ABC):
+class DataElementDescriptor[D: XMLData](FieldDescriptor[D]):
     name: str | None
     type: type[D]
 
@@ -288,7 +288,7 @@ class DataElementDescriptor[D: XMLData](FieldDescriptor[D], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type)
 
 
-class OptionalDataElementDescriptor[D: XMLData](DataElementDescriptor[D], ABC):
+class OptionalDataElementDescriptor[D: XMLData](DataElementDescriptor[D]):
     default: D | None
 
     @property
@@ -297,7 +297,7 @@ class OptionalDataElementDescriptor[D: XMLData](DataElementDescriptor[D], ABC):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type | None, default=self.default)
 
 
-class MultiDataElementDescriptor[D: XMLData](DataElementDescriptor[D], ABC):
+class MultiDataElementDescriptor[D: XMLData](DataElementDescriptor[D]):
     optional: bool
 
     @property
