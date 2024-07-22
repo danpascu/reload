@@ -87,8 +87,6 @@ from .datamodel import (
 from .elements import AnnotatedStructure, Element, LinkedElement, ListElement, Structure
 
 __all__ = (  # noqa: RUF022
-    'Message',
-
     # composite types
     'Destination',
     'ForwardingOption',
@@ -102,6 +100,8 @@ __all__ = (  # noqa: RUF022
     'Signature',
 
     # messages
+    'Message',
+
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
