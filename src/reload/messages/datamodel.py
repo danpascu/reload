@@ -932,7 +932,7 @@ class ResourceID(OpaqueID):
         return cls(hashlib.sha1(resource, usedforsecurity=False).digest()[:NodeID._size_])
 
 
-# Compound types
+# List types
 
 class List[T: DataWireProtocol](list[T]):
     _type_: type[T] = NotImplemented
