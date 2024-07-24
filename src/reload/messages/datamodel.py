@@ -408,7 +408,10 @@ class CompositeAdapter[T: SizedDataWireProtocol]:
             raise TypeError(f'Cannot use composite type adapter {cls.__qualname__!r} that does not define its types')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
-        data = buffer.read(cls._types_[0]._size_)
+        size = cls._types_[0]._size_  # all types are of equal size
+        data = buffer.read(size)
+        if len(data) != size:
+            raise ValueError(f'Insufficient data in buffer to extract {' | '.join(_type.__qualname__ for _type in cls._types_)!r}')
         last_error = None
         for item_type in cls._types_:
             try:
