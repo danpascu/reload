@@ -28,9 +28,9 @@ class Structure:  # noqa: PLW1641
 
     def __new__(cls, **kw: object) -> Self:
         if not cls._all_arguments.issuperset(kw):
-            raise TypeError(f'got an unexpected keyword argument {next(iter(set(kw) - cls._all_arguments))!r}')
+            raise TypeError(f'Got an unexpected keyword argument {next(iter(set(kw) - cls._all_arguments))!r}')
         if not cls._mandatory_arguments.issubset(kw):
-            raise TypeError(f'missing a required keyword argument {next(iter(cls._mandatory_arguments - set(kw)))!r}')
+            raise TypeError(f'Missing a required keyword argument {next(iter(cls._mandatory_arguments - set(kw)))!r}')
         return super().__new__(cls)
 
     def __init__(self, **kw: object) -> None:
@@ -194,7 +194,7 @@ class Element[T](ElementDescriptor[T]):
         if self.name is None:
             self.name = name
         elif name != self.name:
-            raise TypeError(f'cannot assign the same {self.__class__.__qualname__} to two different names: {self.name} and {name}')
+            raise TypeError(f'Cannot assign the same {self.__class__.__qualname__!r} to two different names: {self.name!r} and {name!r}')
 
     @overload
     def __get__(self, instance: None, owner: type[Structure]) -> Self: ...
@@ -206,7 +206,7 @@ class Element[T](ElementDescriptor[T]):
         if instance is None:
             return self
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             return instance.__dict__[self.name]
         except KeyError as exc:
@@ -214,15 +214,15 @@ class Element[T](ElementDescriptor[T]):
 
     def __set__(self, instance: Structure, value: T) -> None:
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         instance.__dict__[self.name] = self.adapter.validate(value)
 
     def __delete__(self, instance: Structure) -> None:
-        raise AttributeError(f"Attribute '{self.name!r}' of '{instance.__class__.__qualname__}' object cannot be deleted")
+        raise AttributeError(f'Attribute {self.name!r} of {instance.__class__.__qualname__!r} object cannot be deleted')
 
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             instance.__dict__[self.name] = self.adapter.from_wire(buffer)
         except ValueError as exc:
@@ -238,7 +238,7 @@ class Element[T](ElementDescriptor[T]):
 class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
     def __init__(self, *, type_map: Mapping[U, type[T]], linked_field: ElementDescriptor[U], fallback_type: type[T] | None = None, default: T = NotImplemented) -> None:
         if not type_map and fallback_type is None:
-            raise TypeError(f'A {self.__class__.__qualname__} with an empty type_map must specify a fallback type')
+            raise TypeError(f'A {self.__class__.__qualname__!r} with an empty type_map must specify a fallback type')
         self.name = None
         self.linked_field = linked_field
         self.type_map = type_map
@@ -253,7 +253,7 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
         if self.name is None:
             self.name = name
         elif name != self.name:
-            raise TypeError(f'cannot assign the same {self.__class__.__qualname__} to two different names: {self.name} and {name}')
+            raise TypeError(f'Cannot assign the same {self.__class__.__qualname__!r} to two different names: {self.name!r} and {name!r}')
 
     @overload
     def __get__(self, instance: None, owner: type[Structure]) -> Self: ...
@@ -265,7 +265,7 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
         if instance is None:
             return self
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             return instance.__dict__[self.name]
         except KeyError as exc:
@@ -273,7 +273,7 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
 
     def __set__(self, instance: Structure, value: T) -> None:
         if self.name is None or self.linked_field.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             linked_field_value = instance.__dict__[self.linked_field.name]
         except KeyError as exc:
@@ -282,7 +282,7 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
         if element_type is None:
             raise ValueError(f'Cannot find associated type for linked field {self.linked_field.name!r} with value {linked_field_value!r}')
         if not isinstance(value, element_type):
-            raise TypeError(f'The value for the {self.name!r} field should be of type {element_type.__qualname__}')
+            raise TypeError(f'The value for the {self.name!r} field should be of type {element_type.__qualname__!r}')
         instance.__dict__[self.name] = value
 
     def __delete__(self, instance: Structure) -> None:
@@ -290,7 +290,7 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
 
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None or self.linked_field.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             linked_field_value = instance.__dict__[self.linked_field.name]
         except KeyError as exc:
@@ -328,7 +328,7 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
         if self.name is None:
             self.name = name
         elif name != self.name:
-            raise TypeError(f'cannot assign the same {self.__class__.__qualname__} to two different names: {self.name} and {name}')
+            raise TypeError(f'Cannot assign the same {self.__class__.__qualname__!r} to two different names: {self.name!r} and {name!r}')
 
     @overload
     def __get__(self, instance: None, owner: type[Structure]) -> Self: ...
@@ -340,7 +340,7 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
         if instance is None:
             return self
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             return instance.__dict__[self.name]
         except KeyError as exc:
@@ -348,15 +348,15 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
 
     def __set__(self, instance: Structure, value: Sequence[T]) -> None:
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         instance.__dict__[self.name] = self.list_type(value)
 
     def __delete__(self, instance: Structure) -> None:
-        raise AttributeError(f"Attribute '{self.name!r}' of '{instance.__class__.__qualname__}' object cannot be deleted")
+        raise AttributeError(f'Attribute {self.name!r} of {instance.__class__.__qualname__!r} object cannot be deleted')
 
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None:
-            raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
             instance.__dict__[self.name] = self.list_type.from_wire(buffer)
         except ValueError as exc:

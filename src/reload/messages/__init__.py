@@ -350,7 +350,7 @@ class Message(AnnotatedStructure):
         super().__init_subclass__(**kw)
         cls._code_ = UInt16(code)
         if cls._code_ != 0 and cls._registry_.setdefault(cls._code_, cls) is not cls:
-            raise TypeError(f'Message code 0x{cls._code_:x} is already used by {cls._registry_[cls._code_]}')
+            raise TypeError(f'Message code 0x{cls._code_:x} is already used by {cls._registry_[cls._code_].__qualname__!r}')
 
     def __class_getitem__(cls, code: int) -> MessageType:
         try:
