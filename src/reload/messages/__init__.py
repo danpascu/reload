@@ -153,7 +153,7 @@ class Destination(AnnotatedStructure):
     }
 
     type: Element[DestinationType] = Element(DestinationType)
-    data: LinkedElement[NodeID | ResourceID | OpaqueID, DestinationType] = LinkedElement(type_map=_destination_type_map, key_field=type)
+    data: LinkedElement[NodeID | ResourceID | OpaqueID, DestinationType] = LinkedElement(type_map=_destination_type_map, linked_field=type)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.data.hex()}>'
@@ -201,7 +201,7 @@ class ForwardingOption(AnnotatedStructure):
 
     type: Element[ForwardingOptionType | UInt8] = Element(ForwardingOptionType | UInt8, adapter=ForwardingOptionAdapter)
     flags: Element[ForwardingFlags] = Element(ForwardingFlags)
-    option: LinkedElement[Opaque16, ForwardingOptionType | UInt8] = LinkedElement(type_map=_forwarding_option_type_map, key_field=type, fallback_type=Opaque16, default=Opaque16())
+    option: LinkedElement[Opaque16, ForwardingOptionType | UInt8] = LinkedElement(type_map=_forwarding_option_type_map, linked_field=type, fallback_type=Opaque16, default=Opaque16())
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
@@ -243,7 +243,7 @@ class MessageExtension(AnnotatedStructure):
 
     type: Element[MessageExtensionType | UInt16] = Element(MessageExtensionType | UInt16, adapter=MessageExtensionAdapter)
     critical: Element[bool] = Element(bool)
-    extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(type_map=_message_extension_type_map, key_field=type, fallback_type=Opaque32, default=Opaque32())
+    extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(type_map=_message_extension_type_map, linked_field=type, fallback_type=Opaque32, default=Opaque32())
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
@@ -306,7 +306,7 @@ class SignerIdentity(AnnotatedStructure):
     }
 
     type: Element[SignerIdentityType] = Element(SignerIdentityType)
-    identity: LinkedElement[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType] = LinkedElement(type_map=_signer_identity_type_map, key_field=type)
+    identity: LinkedElement[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType] = LinkedElement(type_map=_signer_identity_type_map, linked_field=type)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.identity!r}>'

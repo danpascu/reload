@@ -233,18 +233,18 @@ class Element[T](ElementDescriptor[T]):
 
 
 class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
-    def __init__(self, *, type_map: Mapping[U, type[T]], key_field: ElementDescriptor[U], fallback_type: type[T] | None = None, default: T = NotImplemented) -> None:
+    def __init__(self, *, type_map: Mapping[U, type[T]], linked_field: ElementDescriptor[U], fallback_type: type[T] | None = None, default: T = NotImplemented) -> None:
         if not type_map and fallback_type is None:
             raise TypeError(f'A {self.__class__.__qualname__} with an empty type_map must specify a fallback type')
         self.name = None
-        self.linked_field = key_field
+        self.linked_field = linked_field
         self.type_map = type_map
         self.fallback_type = fallback_type
         self.default = default
 
     def __repr__(self) -> str:
         fallback_type_name = self.fallback_type.__qualname__ if self.fallback_type else None
-        return f'{self.__class__.__name__}(type_map={self.type_map!r}, key_field={self.linked_field.name!s}, fallback_type={fallback_type_name}, default={self.default!r})'
+        return f'{self.__class__.__name__}(type_map={self.type_map!r}, linked_field={self.linked_field.name!s}, fallback_type={fallback_type_name}, default={self.default!r})'
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
