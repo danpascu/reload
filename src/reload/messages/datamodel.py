@@ -345,6 +345,8 @@ class OpaqueAdapter:
         if len(length_data) < cls._sizelen_:
             raise ValueError('Insufficient data in buffer to extract the opaque bytes length')
         data_length = int.from_bytes(length_data, byteorder='big')
+        if data_length > cls._maxsize_:
+            raise ValueError(f'Data length is too big for opaque bytes ({data_length} > {cls._maxsize_})')
         opaque_data = buffer.read(data_length)
         if len(opaque_data) < data_length:
             raise ValueError('Insufficient data in buffer to extract the opaque bytes')
@@ -864,6 +866,8 @@ class Opaque(bytes):
         if len(length_data) < cls._sizelen_:
             raise ValueError(f'Insufficient data in buffer to extract the data length for {cls.__qualname__!r}')
         data_length = int.from_bytes(length_data, byteorder='big')
+        if data_length > cls._maxsize_:
+            raise ValueError(f'Data length is too big for {cls.__qualname__!r} ({data_length} > {cls._maxsize_})')
         opaque_data = buffer.read(data_length)
         if len(opaque_data) < data_length:
             raise ValueError(f'Insufficient data in buffer to extract the data for {cls.__qualname__!r}')
