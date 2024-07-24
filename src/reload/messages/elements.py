@@ -223,7 +223,10 @@ class Element[T](ElementDescriptor[T]):
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None:
             raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
-        instance.__dict__[self.name] = self.adapter.from_wire(buffer)
+        try:
+            instance.__dict__[self.name] = self.adapter.from_wire(buffer)
+        except ValueError as exc:
+            raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
 
     def to_wire(self, instance: Structure) -> bytes:
         return self.adapter.to_wire(self.__get__(instance))
@@ -294,8 +297,11 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
             raise AttributeError(f'Linked attribute {self.linked_field.name!r} of object {instance.__class__.__qualname__!r} is not set') from exc
         element_type = self.type_map.get(linked_field_value, self.fallback_type)
         if element_type is None:
-            raise ValueError(f'Cannot find associated type for linked field {self.linked_field.name!r} with value {linked_field_value!r}')
-        instance.__dict__[self.name] = element_type.from_wire(buffer)
+            raise ValueError(f'Cannot find associated type for linked field {instance.__class__.__qualname__}.{self.linked_field.name} with value {linked_field_value!r}')
+        try:
+            instance.__dict__[self.name] = element_type.from_wire(buffer)
+        except ValueError as exc:
+            raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
 
     def to_wire(self, instance: Structure) -> bytes:
         return self.__get__(instance).to_wire()
@@ -351,7 +357,10 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None:
             raise TypeError(f'cannot use {self.__class__.__qualname__} instance without calling __set_name__ on it.')
-        instance.__dict__[self.name] = self.list_type.from_wire(buffer)
+        try:
+            instance.__dict__[self.name] = self.list_type.from_wire(buffer)
+        except ValueError as exc:
+            raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
 
     def to_wire(self, instance: Structure) -> bytes:
         return self.__get__(instance).to_wire()
