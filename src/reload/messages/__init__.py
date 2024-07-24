@@ -167,6 +167,8 @@ class Destination(AnnotatedStructure):
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         data = buffer.read(2)
+        if len(data) != 2:  # noqa: PLR2004
+            raise ValueError(f'Insufficient data in buffer to extract {cls.__qualname__!r}')
         if data[0] & 0x80:
             return cls(type=DestinationType.opaque_id_type, data=OpaqueID(data))
         instance = super(Structure, cls).__new__(cls)
