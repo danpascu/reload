@@ -4,17 +4,19 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from enum import Enum
 from functools import reduce
 from inspect import Parameter, Signature
 from io import BytesIO
 from itertools import chain
 from operator import or_
-from types import UnionType, new_class
+from types import NoneType, UnionType, new_class
 from typing import ClassVar, Self, cast, dataclass_transform, overload
 
-from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, WireData, make_list_type, make_variable_length_list_type
+from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
-__all__ = 'AnnotatedStructure', 'Structure', 'FieldDescriptor', 'ElementDescriptor', 'LinkedElementDescriptor', 'ListElementDescriptor', 'Element', 'LinkedElement', 'ListElement'  # noqa: RUF022
+__all__ = 'AnnotatedStructure', 'Structure', 'Element', 'LinkedElement', 'LinkedElementSpecification', 'ListElement'  # noqa: RUF022
 
 
 class Structure:  # noqa: PLW1641
@@ -81,6 +83,8 @@ class Structure:  # noqa: PLW1641
 type DataWireAdapterType[T] = type[DataWireAdapter[T]]
 
 
+# Field descriptor specifications
+
 class FieldDescriptor(ABC):
     name: str | None
 
@@ -116,6 +120,7 @@ class LinkedElementDescriptor[T, U](FieldDescriptor):
     linked_field: ElementDescriptor[U]
     type_map: Mapping[U, type[T]]
     fallback_type: type[T] | None
+    length_type: type[UnsignedInteger]
     default: T
 
     @property
@@ -140,6 +145,28 @@ class ListElementDescriptor[T: DataWireProtocol](FieldDescriptor):
         return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=list[self.item_type], **kwds)  # type: ignore[name-defined]
 
 
+# Helpers
+
+class _reprproxy:  # noqa: N801
+    # Provide better representation for certain types which can be evaluated to recreate the object.
+
+    def __init__(self, value: object) -> None:
+        self.value = value
+
+    def __repr__(self) -> str:
+        match self.value:
+            case Enum() as value:  # this also covers Flag which is a subclass of Enum
+                return f'{value.__class__.__qualname__}.{value.name}'
+            case UnionType() as value:
+                return ' | '.join('None' if _type is NoneType else _type.__qualname__ for _type in value.__args__)
+            case type() as value:
+                return value.__qualname__
+            case value:
+                return repr(value)
+
+    __str__ = __repr__
+
+
 def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapter[T]]:
     # Turn a DataWireProtocol into a DataWireAdapter by creating a stand-in adapter on the fly.
     #
@@ -161,6 +188,8 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
 
     return new_class(f'{proto.__name__}AdapterStandIn', (DataWireAdapter[T],), exec_body=prepare)
 
+
+# Field descriptor implementations
 
 class Element[T](ElementDescriptor[T]):
     @overload
@@ -235,19 +264,46 @@ class Element[T](ElementDescriptor[T]):
         return self.adapter.wire_length(self.__get__(instance))
 
 
-class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
-    def __init__(self, *, type_map: Mapping[U, type[T]], linked_field: ElementDescriptor[U], fallback_type: type[T] | None = None, default: T = NotImplemented) -> None:
-        if not type_map and fallback_type is None:
+@dataclass(kw_only=True)
+class LinkedElementSpecification[T: DataWireProtocol, U]:
+    type_map: Mapping[U, type[T]]
+    fallback_type: type[T] | None = None
+    length_type: type[UnsignedInteger]
+    check_length: bool = False
+
+    def __post_init__(self) -> None:
+        if self.length_type._size_ is NotImplemented:
+            raise TypeError('The length type cannot be an abstract UnsignedInteger type that does not define its size')
+        if not self.type_map and self.fallback_type is None:
             raise TypeError(f'A {self.__class__.__qualname__!r} with an empty type_map must specify a fallback type')
-        self.name = None
-        self.linked_field = linked_field
-        self.type_map = type_map
-        self.fallback_type = fallback_type
-        self.default = default
+        if self.fallback_type is not None:
+            if not isinstance(self.fallback_type, type) or not issubclass(self.fallback_type, Opaque):
+                raise TypeError('The fallback type must be an Opaque type or None')
+            if self.fallback_type._sizelen_ is NotImplemented:
+                raise TypeError('The fallback type cannot be an abstract Opaque type that does not define its size')
+            if self.fallback_type._sizelen_ != self.length_type._size_:
+                raise TypeError(f'The fallback type must have the same size length as the length type ({self.fallback_type._sizelen_} != {self.length_type._size_})')
 
     def __repr__(self) -> str:
-        fallback_type_name = self.fallback_type.__qualname__ if self.fallback_type else None
-        return f'{self.__class__.__name__}(type_map={self.type_map!r}, linked_field={self.linked_field.name!s}, fallback_type={fallback_type_name}, default={self.default!r})'
+        type_map = {_reprproxy(name): _reprproxy(value) for name, value in self.type_map.items()}
+        fallback_type = _reprproxy(self.fallback_type)
+        length_type = _reprproxy(self.length_type)
+        return f'{self.__class__.__qualname__}({type_map=}, {fallback_type=}, {length_type=}, check_length={self.check_length!r})'
+
+
+class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
+    def __init__(self, *, linked_field: ElementDescriptor[U], specification: LinkedElementSpecification[T, U], default: T = NotImplemented) -> None:
+        self.name = None
+        self.linked_field = linked_field
+        self.specification = specification
+        self.default = default
+        self.type_map = specification.type_map
+        self.fallback_type = specification.fallback_type
+        self.length_type = specification.length_type
+        self.check_length = specification.check_length
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(linked_field={self.linked_field.name!s}, specification={self.specification!r}, default={self.default!r})'
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
@@ -291,23 +347,59 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
         if self.name is None or self.linked_field.name is None:
             raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
+
         try:
             linked_field_value = instance.__dict__[self.linked_field.name]
         except KeyError as exc:
             raise AttributeError(f'Linked attribute {self.linked_field.name!r} of object {instance.__class__.__qualname__!r} is not set') from exc
-        element_type = self.type_map.get(linked_field_value, self.fallback_type)
-        if element_type is None:
-            raise ValueError(f'Cannot find associated type for linked field {instance.__class__.__qualname__}.{self.linked_field.name} with value {linked_field_value!r}')
+
+        element_type = self.type_map.get(linked_field_value, None)
+
+        if element_type is not None:
+            if not isinstance(buffer, BytesIO):
+                buffer = BytesIO(buffer)
+
+            length_data = buffer.read(self.length_type._size_)
+            if len(length_data) < self.length_type._size_:
+                raise ValueError(f'Insufficient data in buffer to get the length for the {instance.__class__.__qualname__}.{self.name} element')
+
+            if self.check_length:
+                length = self.length_type.from_wire(length_data)
+                element_data = buffer.read(length)
+                if len(element_data) < length:
+                    raise ValueError(f'Insufficient data in buffer to get the {instance.__class__.__qualname__}.{self.name} element')
+            else:
+                element_data = buffer  # When check_length is False, it means the element knows its size and doesn't need the length to parse itself.
+        else:
+            if self.fallback_type is None:
+                raise ValueError(f'Cannot find associated type for linked field {instance.__class__.__qualname__}.{self.linked_field.name} with value {linked_field_value!r}')
+            element_type = self.fallback_type
+            element_data = buffer  # The fallback type handles the length field internally
+
         try:
-            instance.__dict__[self.name] = element_type.from_wire(buffer)
+            instance.__dict__[self.name] = element_type.from_wire(element_data)
         except ValueError as exc:
             raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
 
     def to_wire(self, instance: Structure) -> bytes:
-        return self.__get__(instance).to_wire()
+        # By using self.__get__(instance) we make sure that the element value was properly set, which also
+        # implies that self.name and self.linked_field.name are not None and the linked field is also set.
+        value = self.__get__(instance)
+        assert self.linked_field.name is not None  # noqa: S101 (used by type checkers)
+        linked_field_value = instance.__dict__[self.linked_field.name]
+        if linked_field_value in self.type_map:
+            return self.length_type(value.wire_length()).to_wire() + value.to_wire()
+        return value.to_wire()
 
     def wire_length(self, instance: Structure) -> int:
-        return self.__get__(instance).wire_length()
+        # By using self.__get__(instance) we make sure that the element value was properly set, which also
+        # implies that self.name and self.linked_field.name are not None and the linked field is also set.
+        value = self.__get__(instance)
+        assert self.linked_field.name is not None  # noqa: S101 (used by type checkers)
+        linked_field_value = instance.__dict__[self.linked_field.name]
+        if linked_field_value in self.type_map:
+            return self.length_type._size_ + value.wire_length()
+        return value.wire_length()
 
 
 class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):

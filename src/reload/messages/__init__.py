@@ -84,7 +84,7 @@ from .datamodel import (
     UInt64Adapter,
     WireData,
 )
-from .elements import AnnotatedStructure, Element, LinkedElement, ListElement, Structure
+from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementSpecification, ListElement, Structure
 
 __all__ = (  # noqa: RUF022
     # composite types
@@ -146,14 +146,17 @@ class Destination(AnnotatedStructure):
 
     """
 
-    _destination_type_map: ClassVar[Mapping[DestinationType, type]] = {
-        DestinationType.node: NodeID,
-        DestinationType.resource: ResourceID,
-        DestinationType.opaque_id_type: OpaqueID,
-    }
+    _data_specification: ClassVar = LinkedElementSpecification[NodeID | ResourceID | OpaqueID, DestinationType](
+        type_map={
+            DestinationType.node: NodeID,
+            DestinationType.resource: ResourceID,
+            DestinationType.opaque_id_type: OpaqueID,
+        },
+        length_type=UInt8,
+    )
 
     type: Element[DestinationType] = Element(DestinationType)
-    data: LinkedElement[NodeID | ResourceID | OpaqueID, DestinationType] = LinkedElement(type_map=_destination_type_map, linked_field=type)
+    data: LinkedElement[NodeID | ResourceID | OpaqueID, DestinationType] = LinkedElement(linked_field=type, specification=_data_specification)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.data.hex()}>'
@@ -166,29 +169,22 @@ class Destination(AnnotatedStructure):
     def from_wire(cls, buffer: WireData) -> Self:
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
-        data = buffer.read(2)
-        if len(data) != 2:  # noqa: PLR2004
+        buffer_bytes = buffer.getvalue()
+        if len(buffer_bytes) < 2:  # noqa: PLR2004
             raise ValueError(f'Insufficient data in buffer to extract {cls.__qualname__!r}')
-        if data[0] & 0x80:
-            return cls(type=DestinationType.opaque_id_type, data=OpaqueID(data))
-        instance = super(Structure, cls).__new__(cls)
-        instance.type = DestinationType(data[0])
-        # NOTE @dan:
-        # The length in data[1] is not useful at the moment as the data element is either fixed size or size-prefixed.
-        # If the structure is extended to support other types of data, verifying that there are enough bytes left may
-        # be needed, depending of the type of the data. For now we skip this to avoid an unnecessary slowdown.
-        cls.data.from_wire(instance, buffer)
-        return instance
+        if buffer_bytes[0] & 0x80:
+            return cls(type=DestinationType.opaque_id_type, data=OpaqueID(buffer.read(2)))
+        return super().from_wire(buffer)
 
     def to_wire(self) -> bytes:
         if self.is_opaque_id:
             return bytes(self.data)
-        return self.type.to_wire() + UInt8(self.data.wire_length()).to_wire() + self.data.to_wire()
+        return super().to_wire()
 
     def wire_length(self) -> int:
         if self.is_opaque_id:
             return 2
-        return self.type._size_ + UInt8._size_ + self.data.wire_length()
+        return super().wire_length()
 
 
 class ForwardingOptionAdapter(CompositeAdapter[ForwardingOptionType | UInt8]):
@@ -196,41 +192,17 @@ class ForwardingOptionAdapter(CompositeAdapter[ForwardingOptionType | UInt8]):
 
 
 class ForwardingOption(AnnotatedStructure):
-    # currently there are no options defined in the RFC
-    _forwarding_option_type_map: ClassVar[Mapping[ForwardingOptionType | UInt8, type]] = {}
+    _option_specification: ClassVar = LinkedElementSpecification[Opaque16, ForwardingOptionType | UInt8](
+        type_map={
+            # currently there are no forwarding options defined in the RFC
+        },
+        fallback_type=Opaque16,
+        length_type=UInt16,
+    )
 
     type: Element[ForwardingOptionType | UInt8] = Element(ForwardingOptionType | UInt8, adapter=ForwardingOptionAdapter)
     flags: Element[ForwardingFlags] = Element(ForwardingFlags)
-    option: LinkedElement[Opaque16, ForwardingOptionType | UInt8] = LinkedElement(type_map=_forwarding_option_type_map, linked_field=type, fallback_type=Opaque16, default=Opaque16())
-
-    @classmethod
-    def from_wire(cls, buffer: WireData) -> Self:
-        if not isinstance(buffer, BytesIO):
-            buffer = BytesIO(buffer)
-        instance = super(Structure, cls).__new__(cls)
-        cls.type.from_wire(instance, buffer)
-        cls.flags.from_wire(instance, buffer)
-        option_type = cls.option.type_map.get(instance.type, None)
-        if option_type is not None:
-            length = UInt16.from_wire(buffer)
-            instance.option = option_type.from_wire(buffer.read(length))
-        else:
-            instance.option = Opaque16.from_wire(buffer)
-        return instance
-
-    def to_wire(self) -> bytes:
-        match self.option:
-            case Opaque16() as option:
-                return self.type.to_wire() + self.flags.to_wire() + option.to_wire()
-            case option:
-                return self.type.to_wire() + self.flags.to_wire() + UInt16(option.wire_length()).to_wire() + option.to_wire()  # type: ignore[unreachable]
-
-    def wire_length(self) -> int:
-        match self.option:
-            case Opaque16() as option:
-                return self.type._size_ + self.flags._size_ + option.wire_length()
-            case option:
-                return self.type._size_ + self.flags._size_ + UInt16._size_ + option.wire_length()  # type: ignore[unreachable]
+    option: LinkedElement[Opaque16, ForwardingOptionType | UInt8] = LinkedElement(linked_field=type, specification=_option_specification, default=Opaque16())
 
 
 class MessageExtensionAdapter(CompositeAdapter[MessageExtensionType | UInt16]):
@@ -238,41 +210,20 @@ class MessageExtensionAdapter(CompositeAdapter[MessageExtensionType | UInt16]):
 
 
 class MessageExtension(AnnotatedStructure):
+    _extension_specification: ClassVar = LinkedElementSpecification[Opaque32, MessageExtensionType | UInt16](
+        type_map={
+            # currently there are no message extensions defined in the RFC
+        },
+        fallback_type=Opaque32,
+        length_type=UInt32,
+    )
+
     # currently there are no message extensions defined in the RFC
     _message_extension_type_map: ClassVar[Mapping[MessageExtensionType | UInt16, type]] = {}
 
     type: Element[MessageExtensionType | UInt16] = Element(MessageExtensionType | UInt16, adapter=MessageExtensionAdapter)
     critical: Element[bool] = Element(bool)
-    extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(type_map=_message_extension_type_map, linked_field=type, fallback_type=Opaque32, default=Opaque32())
-
-    @classmethod
-    def from_wire(cls, buffer: WireData) -> Self:
-        if not isinstance(buffer, BytesIO):
-            buffer = BytesIO(buffer)
-        instance = super(Structure, cls).__new__(cls)
-        cls.type.from_wire(instance, buffer)
-        cls.critical.from_wire(instance, buffer)
-        extension_type = cls.extension.type_map.get(instance.type, None)
-        if extension_type is not None:
-            length = UInt32.from_wire(buffer)
-            instance.extension = extension_type.from_wire(buffer.read(length))
-        else:
-            instance.extension = Opaque32.from_wire(buffer)
-        return instance
-
-    def to_wire(self) -> bytes:
-        match self.extension:
-            case Opaque32() as extension:
-                return self.type.to_wire() + self.__class__.critical.to_wire(self) + extension.to_wire()
-            case extension:
-                return self.type.to_wire() + self.__class__.critical.to_wire(self) + UInt32(extension.wire_length()).to_wire() + extension.to_wire()  # type: ignore[unreachable]
-
-    def wire_length(self) -> int:
-        match self.extension:
-            case Opaque32() as extension:
-                return self.type._size_ + 1 + extension.wire_length()
-            case extension:
-                return self.type._size_ + 1 + UInt32._size_ + extension.wire_length()  # type: ignore[unreachable]
+    extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(linked_field=type, specification=_extension_specification, default=Opaque32())
 
 
 class GenericCertificate(AnnotatedStructure):
@@ -299,33 +250,20 @@ class Empty(AnnotatedStructure):
 
 
 class SignerIdentity(AnnotatedStructure):
-    _signer_identity_type_map: ClassVar[Mapping[SignerIdentityType, type]] = {
-        SignerIdentityType.cert_hash: CertificateHash,
-        SignerIdentityType.cert_hash_node_id: NodeIDCertificateHash,
-        SignerIdentityType.none: Empty,
-    }
+    _identity_specification: ClassVar = LinkedElementSpecification[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType](
+        type_map={
+            SignerIdentityType.cert_hash: CertificateHash,
+            SignerIdentityType.cert_hash_node_id: NodeIDCertificateHash,
+            SignerIdentityType.none: Empty,
+        },
+        length_type=UInt16,
+    )
 
     type: Element[SignerIdentityType] = Element(SignerIdentityType)
-    identity: LinkedElement[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType] = LinkedElement(type_map=_signer_identity_type_map, linked_field=type)
+    identity: LinkedElement[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType] = LinkedElement(linked_field=type, specification=_identity_specification)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.identity!r}>'
-
-    @classmethod
-    def from_wire(cls, buffer: WireData) -> Self:
-        if not isinstance(buffer, BytesIO):
-            buffer = BytesIO(buffer)
-        instance = super(Structure, cls).__new__(cls)
-        cls.type.from_wire(instance, buffer)
-        length = UInt16.from_wire(buffer)
-        cls.identity.from_wire(instance, buffer.read(length))
-        return instance
-
-    def to_wire(self) -> bytes:
-        return self.type.to_wire() + UInt16(self.identity.wire_length()).to_wire() + self.identity.to_wire()
-
-    def wire_length(self) -> int:
-        return self.type._size_ + UInt16._size_ + self.identity.wire_length()
 
 
 class Signature(AnnotatedStructure):
