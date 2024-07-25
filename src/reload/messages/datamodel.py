@@ -6,6 +6,7 @@ import enum
 import hashlib
 from collections.abc import Buffer, Iterable, MutableMapping
 from io import BytesIO
+from ipaddress import IPv4Address, IPv6Address
 from secrets import token_bytes as secure_random_bytes
 from types import GenericAlias, UnionType, new_class
 from typing import Any, ClassVar, Protocol, Self, SupportsBytes, SupportsIndex, SupportsInt, TypeVar, cast, overload, runtime_checkable
@@ -45,6 +46,9 @@ __all__ = (  # noqa: RUF022
     'Opaque16Adapter',
     'Opaque24Adapter',
     'Opaque32Adapter',
+
+    'IPv4AddressAdapter',
+    'IPv6AddressAdapter',
 
     'CompositeAdapter',
 
@@ -381,6 +385,58 @@ class Opaque24Adapter(OpaqueAdapter, maxsize=2**24 - 1):
 
 class Opaque32Adapter(OpaqueAdapter, maxsize=2**32 - 1):
     pass
+
+
+class IPv4AddressAdapter:
+    _size_ = UInt32Adapter._size_
+
+    @classmethod
+    def from_wire(cls, buffer: WireData) -> IPv4Address:
+        if isinstance(buffer, BytesIO):
+            data = buffer.read(cls._size_)
+        else:
+            data = buffer[:cls._size_]
+        if len(data) < cls._size_:
+            raise ValueError('Insufficient data in buffer to extract an IPv4Address')
+        return IPv4Address(data)
+
+    @classmethod
+    def to_wire(cls, value: IPv4Address, /) -> bytes:
+        return value.packed
+
+    @classmethod
+    def wire_length(cls, _: IPv4Address, /) -> int:
+        return cls._size_
+
+    @classmethod
+    def validate(cls, value: IPv4Address, /) -> IPv4Address:
+        return value
+
+
+class IPv6AddressAdapter:
+    _size_ = UInt128Adapter._size_
+
+    @classmethod
+    def from_wire(cls, buffer: WireData) -> IPv6Address:
+        if isinstance(buffer, BytesIO):
+            data = buffer.read(cls._size_)
+        else:
+            data = buffer[:cls._size_]
+        if len(data) < cls._size_:
+            raise ValueError('Insufficient data in buffer to extract an IPv6Address')
+        return IPv6Address(data)
+
+    @classmethod
+    def to_wire(cls, value: IPv6Address, /) -> bytes:
+        return value.packed
+
+    @classmethod
+    def wire_length(cls, _: IPv6Address, /) -> int:
+        return cls._size_
+
+    @classmethod
+    def validate(cls, value: IPv6Address, /) -> IPv6Address:
+        return value
 
 
 class CompositeAdapter[T: SizedDataWireProtocol]:
