@@ -50,12 +50,14 @@ import struct
 from collections.abc import Mapping, MutableMapping, Sequence
 from functools import lru_cache
 from io import BytesIO
+from ipaddress import IPv4Address, IPv6Address
 from secrets import randbelow
 from typing import ClassVar, Self
 
 from reload.configuration import Configuration
 
 from .datamodel import (
+    AddressType,
     CertificateType,
     ChordLeaveType,
     CompositeAdapter,
@@ -64,6 +66,8 @@ from .datamodel import (
     ForwardingFlags,
     ForwardingOptionType,
     HashAlgorithm,
+    IPv4AddressAdapter,
+    IPv6AddressAdapter,
     MessageExtensionType,
     NodeID,
     Opaque8Adapter,
@@ -88,6 +92,9 @@ from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementS
 
 __all__ = (  # noqa: RUF022
     # composite types
+    'IPv4AddrPort',
+    'IPv6AddrPort',
+    'IPAddressPort',
     'Destination',
     'ForwardingOption',
     'MessageExtension',
@@ -126,6 +133,35 @@ __all__ = (  # noqa: RUF022
 
 RELOAD_VERSION = 10  # The version of the RELOAD protocol being implemented times 10 (currently 1.0)
 RELO_TOKEN = b'\xd2ELO'  # 'RELO' with the high bit of the 1st character set to 1
+
+
+# Composite types
+
+class IPv4AddrPort(AnnotatedStructure):
+    addr: Element[IPv4Address] = Element(IPv4Address, adapter=IPv4AddressAdapter)
+    port: Element[int] = Element(int, adapter=UInt16Adapter)
+
+
+class IPv6AddrPort(AnnotatedStructure):
+    addr: Element[IPv6Address] = Element(IPv6Address, adapter=IPv6AddressAdapter)
+    port: Element[int] = Element(int, adapter=UInt16Adapter)
+
+
+class IPAddressPort(AnnotatedStructure):
+    # AddressType type       // the type of IP address in addr_port
+    # uint8       length     // length of addr_port (not exposed)
+    # IPAddrPort  addr_port  // either IPv4AddrPort or IPv6AddrPort based on type
+
+    _addr_port_specification: ClassVar = LinkedElementSpecification[IPv4AddrPort | IPv6AddrPort, AddressType](
+        type_map={
+            AddressType.ipv4_address: IPv4AddrPort,
+            AddressType.ipv6_address: IPv6AddrPort,
+        },
+        length_type=UInt8,
+    )
+
+    type: Element[AddressType] = Element(AddressType)
+    addr_port: LinkedElement[IPv4AddrPort | IPv6AddrPort, AddressType] = LinkedElement(linked_field=type, specification=_addr_port_specification)
 
 
 class Destination(AnnotatedStructure):
