@@ -57,7 +57,7 @@ class Structure:  # noqa: PLW1641
         cls._default_arguments = {p.name: p.default for p in cls.__signature__.parameters.values() if p.default is not Parameter.empty}
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__qualname__}({', '.join(f'{name}={getattr(self, name)!r}' for name in self._fields_)})'
+        return f'{self.__class__.__qualname__}({', '.join(f'{name}={_reprproxy(getattr(self, name))!r}' for name in self._fields_)})'
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Structure):
@@ -215,9 +215,7 @@ class Element[T](ElementDescriptor[T]):
         self.adapter = adapter
 
     def __repr__(self) -> str:
-        type_name = str(self.type) if isinstance(self.type, UnionType) else self.type.__qualname__
-        adapter_name = self.provided_adapter.__qualname__ if self.provided_adapter else None
-        return f'{self.__class__.__name__}({type_name}, default={self.default!r}, adapter={adapter_name})'
+        return f'{self.__class__.__name__}({_reprproxy(self.type)!r}, default={self.default!r}, adapter={_reprproxy(self.provided_adapter)!r})'
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
