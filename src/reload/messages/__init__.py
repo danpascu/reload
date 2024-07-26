@@ -427,7 +427,7 @@ class ForwardingHeader(AnnotatedStructure):
 
     # preamble end
 
-    via_list: ListElement[Destination] = ListElement(Destination)
+    via_list: ListElement[Destination] = ListElement(Destination, default=())
     destination_list: ListElement[Destination] = ListElement(Destination)
     options: ListElement[ForwardingOption] = ListElement(ForwardingOption, default=())
 
