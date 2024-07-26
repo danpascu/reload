@@ -14,7 +14,7 @@ from operator import or_
 from types import NoneType, UnionType, new_class
 from typing import ClassVar, Self, cast, dataclass_transform, overload
 
-from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
+from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
 __all__ = 'AnnotatedStructure', 'Structure', 'Element', 'LinkedElement', 'LinkedElementSpecification', 'ListElement'  # noqa: RUF022
 
@@ -272,8 +272,15 @@ class LinkedElementSpecification[T: DataWireProtocol, U]:
     def __post_init__(self) -> None:
         if self.length_type._size_ is NotImplemented:
             raise TypeError('The length type cannot be an abstract UnsignedInteger type that does not define its size')
-        if not self.type_map and self.fallback_type is None:
-            raise TypeError(f'A {self.__class__.__qualname__!r} with an empty type_map must specify a fallback type')
+        if self.length_type is NoLength:
+            if not self.type_map:
+                raise TypeError(f'A {self.__class__.__qualname__!r} that has no length prefix must have a non-empty type_map')
+            if self.fallback_type is not None:
+                raise TypeError(f'A {self.__class__.__qualname__!r} that has no length prefix must have fallback_type=None')
+            if self.check_length:
+                raise TypeError(f'A {self.__class__.__qualname__!r} that has no length prefix must have check_length=False')
+        elif not self.type_map and self.fallback_type is None:
+            raise TypeError(f'A {self.__class__.__qualname__!r} with a length prefix and an empty type_map must specify a fallback type')
         if self.fallback_type is not None:
             if not issubclass(self.fallback_type, Opaque) or self.fallback_type._sizelen_ is NotImplemented:
                 raise TypeError('The fallback type should either be None or an Opaque type which defines its size')

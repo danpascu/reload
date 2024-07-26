@@ -95,6 +95,8 @@ __all__ = (  # noqa: RUF022
     'uint64',
     'uint128',
 
+    'NoLength',
+
     'AddressType',
     'DestinationType',
     'ForwardingOptionType',
@@ -643,6 +645,13 @@ uint16 = UInt16
 uint32 = UInt32
 uint64 = UInt64
 uint128 = UInt128
+
+
+class NoLength(UnsignedInteger, bits=0):
+    """Special type for LinkedElements that do not have a length prefix"""
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__qualname__}()'
 
 
 # Enumeration and flag types
