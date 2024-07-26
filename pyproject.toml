@@ -76,6 +76,9 @@ ignore = ["D1", "D202", "D203", "D212", "D400", "CPY001", "EM1", "N818", "SIM108
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
 
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.ruff.lint.pycodestyle]
 ignore-overlong-task-comments = true
 
