@@ -98,16 +98,16 @@ __all__ = (  # noqa: RUF022
     'NoLength',
 
     'AddressType',
-    'DestinationType',
-    'ForwardingOptionType',
-    'ForwardingFlags',
-    'MessageExtensionType',
-    'ErrorCode',
     'CertificateType',
-    'SignatureAlgorithm',
-    'HashAlgorithm',
-    'SignerIdentityType',
     'ChordLeaveType',
+    'DestinationType',
+    'ErrorCode',
+    'ForwardingFlags',
+    'ForwardingOptionType',
+    'HashAlgorithm',
+    'MessageExtensionType',
+    'SignatureAlgorithm',
+    'SignerIdentityType',
 
     'Opaque8',
     'Opaque16',
@@ -710,25 +710,22 @@ class AddressType(Enum):
     ipv6_address = 2
 
 
+class CertificateType(Enum):
+    X509 = 0
+    # OpenPGP = 1  # not used by RELOAD  # noqa: ERA001
+
+
+class ChordLeaveType(Enum):
+    invalid = 0
+    from_successor = 1
+    from_predecessor = 2
+
+
 class DestinationType(Enum):
     invalid = 0
     node = 1
     resource = 2
     opaque_id_type = 3
-
-
-class ForwardingOptionType(Enum):
-    invalid = 0
-
-
-class ForwardingFlags(Flag):
-    FORWARD_CRITICAL = 1
-    DESTINATION_CRITICAL = 2
-    RESPONSE_COPY = 4
-
-
-class MessageExtensionType(Enum, size=2):
-    invalid = 0
 
 
 class ErrorCode(Enum, size=2):
@@ -758,21 +755,14 @@ class ErrorCode(Enum, size=2):
     InvalidMessage = 20
 
 
-class CertificateType(Enum):
-    X509 = 0
-    # OpenPGP = 1  # not used by RELOAD  # noqa: ERA001
+class ForwardingFlags(Flag):
+    FORWARD_CRITICAL = 1
+    DESTINATION_CRITICAL = 2
+    RESPONSE_COPY = 4
 
 
-class SignatureAlgorithm(Enum):
-    # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-16
-    anonymous = 0
-    rsa = 1
-    dsa = 2
-    ecdsa = 3
-    ed25519 = 7
-    ed448 = 8
-    gostr34102012_256 = 64
-    gostr34102012_512 = 65
+class ForwardingOptionType(Enum):
+    invalid = 0
 
 
 class HashAlgorithm(Enum):
@@ -787,17 +777,27 @@ class HashAlgorithm(Enum):
     Intrinsic = 8
 
 
+class MessageExtensionType(Enum, size=2):
+    invalid = 0
+
+
+class SignatureAlgorithm(Enum):
+    # https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-16
+    anonymous = 0
+    rsa = 1
+    dsa = 2
+    ecdsa = 3
+    ed25519 = 7
+    ed448 = 8
+    gostr34102012_256 = 64
+    gostr34102012_512 = 65
+
+
 class SignerIdentityType(Enum):
     invalid = 0
     cert_hash = 1
     cert_hash_node_id = 2
     none = 3
-
-
-class ChordLeaveType(Enum):
-    invalid = 0
-    from_successor = 1
-    from_predecessor = 2
 
 
 # Byte strings
