@@ -123,6 +123,8 @@ __all__ = (  # noqa: RUF022
     'LeaveResponse',
     'UpdateRequest',
     'UpdateResponse',
+    'RouteQueryRequest',
+    'RouteQueryResponse',
     'PingRequest',
     'PingResponse',
     'ErrorResponse',
@@ -392,6 +394,17 @@ class UpdateRequest(Message, code=0x13):
 
 class UpdateResponse(Message, code=0x14):
     pass
+
+
+class RouteQueryRequest(Message, code=0x15):
+    send_update: Element[bool] = Element(bool)
+    destination: Element[Destination] = Element(Destination)
+    overlay_data: Element[bytes] = Element(bytes, default=b'', adapter=Opaque16Adapter)
+
+
+# This response is Chord specific
+class RouteQueryResponse(Message, code=0x16):
+    next_peer: Element[NodeID] = Element(NodeID)
 
 
 class PingRequest(Message, code=0x17):
