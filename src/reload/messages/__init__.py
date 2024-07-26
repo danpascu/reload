@@ -101,7 +101,7 @@ __all__ = (  # noqa: RUF022
     'GenericCertificate',
     'SignatureAndHashAlgorithm',
     'CertificateHash',
-    'NodeIDCertificateHash',
+    'CertificateHashNodeID',
     'Empty',
     'SignerIdentity',
     'Signature',
@@ -277,7 +277,7 @@ class CertificateHash(AnnotatedStructure):
     certificate_hash: Element[bytes] = Element(bytes, adapter=Opaque8Adapter)
 
 
-class NodeIDCertificateHash(CertificateHash):
+class CertificateHashNodeID(CertificateHash):
     pass
 
 
@@ -286,17 +286,17 @@ class Empty(AnnotatedStructure):
 
 
 class SignerIdentity(AnnotatedStructure):
-    _identity_specification: ClassVar = LinkedElementSpecification[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType](
+    _identity_specification: ClassVar = LinkedElementSpecification[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType](
         type_map={
             SignerIdentityType.cert_hash: CertificateHash,
-            SignerIdentityType.cert_hash_node_id: NodeIDCertificateHash,
+            SignerIdentityType.cert_hash_node_id: CertificateHashNodeID,
             SignerIdentityType.none: Empty,
         },
         length_type=UInt16,
     )
 
     type: Element[SignerIdentityType] = Element(SignerIdentityType)
-    identity: LinkedElement[CertificateHash | NodeIDCertificateHash | Empty, SignerIdentityType] = LinkedElement(linked_field=type, specification=_identity_specification)
+    identity: LinkedElement[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType] = LinkedElement(linked_field=type, specification=_identity_specification)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.identity!r}>'
