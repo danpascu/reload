@@ -60,6 +60,7 @@ from .datamodel import (
     AddressType,
     CertificateType,
     ChordLeaveType,
+    ChordUpdateType,
     CompositeAdapter,
     DestinationType,
     ErrorCode,
@@ -70,6 +71,7 @@ from .datamodel import (
     IPv6AddressAdapter,
     MessageExtensionType,
     NodeID,
+    NoLength,
     Opaque8Adapter,
     Opaque16,
     Opaque16Adapter,
@@ -106,6 +108,10 @@ __all__ = (  # noqa: RUF022
     'SignerIdentity',
     'Signature',
 
+    # Message elements
+    'NodeNeighbors',
+    'NodeNeighborsFingers',
+
     # messages
     'Message',
 
@@ -113,6 +119,8 @@ __all__ = (  # noqa: RUF022
     'JoinResponse',
     'LeaveRequest',
     'LeaveResponse',
+    'UpdateRequest',
+    'UpdateResponse',
     'PingRequest',
     'PingResponse',
     'ErrorResponse',
@@ -262,6 +270,17 @@ class MessageExtension(AnnotatedStructure):
     extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(linked_field=type, specification=_extension_specification, default=Opaque32())
 
 
+class NodeNeighbors(AnnotatedStructure):
+    predecessors: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
+    successors: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
+
+
+class NodeNeighborsFingers(AnnotatedStructure):
+    predecessors: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
+    successors: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
+    fingers: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
+
+
 class GenericCertificate(AnnotatedStructure):
     type: Element[CertificateType] = Element(CertificateType)
     certificate: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
@@ -348,6 +367,24 @@ class LeaveRequest(Message, code=0x11):
 
 
 class LeaveResponse(Message, code=0x12):
+    pass
+
+
+class UpdateRequest(Message, code=0x13):
+    _data_specification: ClassVar = LinkedElementSpecification[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType](
+        type_map={
+            ChordUpdateType.peer_ready: Empty,
+            ChordUpdateType.neighbors: NodeNeighbors,
+            ChordUpdateType.full: NodeNeighborsFingers,
+        },
+        length_type=NoLength,
+    )
+    uptime: Element[int] = Element(int, adapter=UInt32Adapter)
+    type: Element[ChordUpdateType] = Element(ChordUpdateType)
+    data: LinkedElement[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType] = LinkedElement(linked_field=type, specification=_data_specification)
+
+
+class UpdateResponse(Message, code=0x14):
     pass
 
 
