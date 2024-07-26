@@ -47,7 +47,7 @@
 
 import hashlib
 import struct
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import MutableMapping, Sequence
 from functools import lru_cache
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
@@ -271,9 +271,6 @@ class MessageExtension(AnnotatedStructure):
         fallback_type=Opaque32,
         length_type=UInt32,
     )
-
-    # currently there are no message extensions defined in the RFC
-    _message_extension_type_map: ClassVar[Mapping[MessageExtensionType | UInt16, type]] = {}
 
     type: Element[MessageExtensionType | UInt16] = Element(MessageExtensionType | UInt16, adapter=MessageExtensionAdapter)
     critical: Element[bool] = Element(bool)
