@@ -93,26 +93,28 @@ from .datamodel import (
 from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementSpecification, ListElement, Structure
 
 __all__ = (  # noqa: RUF022
-    # composite types
+    # Generic elements
+    'Empty',
     'IPv4AddrPort',
     'IPv6AddrPort',
     'IPAddressPort',
+
+    # Routing and topology elements
     'Destination',
     'ForwardingOption',
     'MessageExtension',
-    'GenericCertificate',
-    'SignatureAndHashAlgorithm',
-    'CertificateHash',
-    'CertificateHashNodeID',
-    'Empty',
-    'SignerIdentity',
-    'Signature',
-
-    # Message elements
     'NodeNeighbors',
     'NodeNeighborsFingers',
 
-    # messages
+    # Signature elements
+    'CertificateHash',
+    'CertificateHashNodeID',
+    'GenericCertificate',
+    'SignatureAndHashAlgorithm',
+    'SignerIdentity',
+    'Signature',
+
+    # Messages (the requests and responses for the overlay methods)
     'Message',
 
     'JoinRequest',
@@ -125,17 +127,17 @@ __all__ = (  # noqa: RUF022
     'PingResponse',
     'ErrorResponse',
 
-    # extension support
+    # Overlay specific message extensions
     'ChordLeaveData',
 
-    # high level structures
+    # Helpers
+    'new_transaction_id',
+    'overlay_id',
+
+    # Toplevel structures
     'ForwardingHeader',
     'MessageContents',
     'SecurityBlock',
-
-    # helpers
-    'new_transaction_id',
-    'overlay_id',
 )
 
 
@@ -143,7 +145,11 @@ RELOAD_VERSION = 10  # The version of the RELOAD protocol being implemented time
 RELO_TOKEN = b'\xd2ELO'  # 'RELO' with the high bit of the 1st character set to 1
 
 
-# Composite types
+# Generic elements
+
+class Empty(AnnotatedStructure):
+    pass
+
 
 class IPv4AddrPort(AnnotatedStructure):
     addr: Element[IPv4Address] = Element(IPv4Address, adapter=IPv4AddressAdapter)
@@ -171,6 +177,8 @@ class IPAddressPort(AnnotatedStructure):
     type: Element[AddressType] = Element(AddressType)
     addr_port: LinkedElement[IPv4AddrPort | IPv6AddrPort, AddressType] = LinkedElement(linked_field=type, specification=_addr_port_specification)
 
+
+# Routing and topology elements
 
 class Destination(AnnotatedStructure):
     """Destination structure on the wire:
@@ -281,15 +289,7 @@ class NodeNeighborsFingers(AnnotatedStructure):
     fingers: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
 
 
-class GenericCertificate(AnnotatedStructure):
-    type: Element[CertificateType] = Element(CertificateType)
-    certificate: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
-
-
-class SignatureAndHashAlgorithm(AnnotatedStructure):
-    hash: Element[HashAlgorithm] = Element(HashAlgorithm)
-    signature: Element[SignatureAlgorithm] = Element(SignatureAlgorithm)
-
+# Signature elements
 
 class CertificateHash(AnnotatedStructure):
     hash_algorithm: Element[HashAlgorithm] = Element(HashAlgorithm)
@@ -300,8 +300,14 @@ class CertificateHashNodeID(CertificateHash):
     pass
 
 
-class Empty(AnnotatedStructure):
-    pass
+class GenericCertificate(AnnotatedStructure):
+    type: Element[CertificateType] = Element(CertificateType)
+    certificate: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
+
+
+class SignatureAndHashAlgorithm(AnnotatedStructure):
+    hash: Element[HashAlgorithm] = Element(HashAlgorithm)
+    signature: Element[SignatureAlgorithm] = Element(SignatureAlgorithm)
 
 
 class SignerIdentity(AnnotatedStructure):
@@ -327,7 +333,7 @@ class Signature(AnnotatedStructure):
     value: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
 
 
-# Requests and Responses
+# Messages (the requests and responses for the overlay methods)
 
 type MessageType = type[Message]
 
@@ -402,7 +408,7 @@ class ErrorResponse(Message, code=0xffff):
     info: Element[bytes] = Element(bytes, default=b'', adapter=Opaque16Adapter)
 
 
-# Extension support
+# Overlay specific message extensions
 
 class ChordLeaveData(AnnotatedStructure):
     type: Element[ChordLeaveType] = Element(ChordLeaveType)
@@ -422,7 +428,7 @@ def overlay_id(overlay: str | bytes) -> int:
     return int.from_bytes(hashlib.sha1(overlay, usedforsecurity=False).digest()[-4:])
 
 
-# High level structures
+# Toplevel structures
 
 class ForwardingHeader(AnnotatedStructure):
     """
