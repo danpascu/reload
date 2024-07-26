@@ -72,12 +72,14 @@ from .datamodel import (
     MessageExtensionType,
     NodeID,
     NoLength,
+    Opaque8,
     Opaque8Adapter,
     Opaque16,
     Opaque16Adapter,
     Opaque32,
     Opaque32Adapter,
     OpaqueID,
+    ProbeInformationType,
     ResourceID,
     SignatureAlgorithm,
     SignerIdentityType,
@@ -105,6 +107,7 @@ __all__ = (  # noqa: RUF022
     'MessageExtension',
     'NodeNeighbors',
     'NodeNeighborsFingers',
+    'ProbeInformation',
 
     # Signature elements
     'CertificateHash',
@@ -117,6 +120,8 @@ __all__ = (  # noqa: RUF022
     # Messages (the requests and responses for the overlay methods)
     'Message',
 
+    'ProbeRequest',
+    'ProbeResponse',
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
@@ -288,6 +293,25 @@ class NodeNeighborsFingers(AnnotatedStructure):
     fingers: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
 
 
+class ProbeInformationAdapter(CompositeAdapter[ProbeInformationType | UInt8]):
+    pass
+
+
+class ProbeInformation(AnnotatedStructure):
+    _value_specification: ClassVar = LinkedElementSpecification[UInt32 | Opaque8, ProbeInformationType | UInt8](
+        type_map={
+            ProbeInformationType.responsible_set: UInt32,
+            ProbeInformationType.num_resources: UInt32,
+            ProbeInformationType.uptime: UInt32,
+        },
+        fallback_type=Opaque8,
+        length_type=UInt8,
+    )
+
+    type: Element[ProbeInformationType | UInt8] = Element(ProbeInformationType | UInt8, adapter=ProbeInformationAdapter)
+    value: LinkedElement[UInt32 | Opaque8, ProbeInformationType | UInt8] = LinkedElement(linked_field=type, specification=_value_specification)
+
+
 # Signature elements
 
 class CertificateHash(AnnotatedStructure):
@@ -355,6 +379,14 @@ class Message(AnnotatedStructure):
             return cls._registry_[code]
         except KeyError as exc:
             raise TypeError(f'Unknown message code 0x{code:x}') from exc
+
+
+class ProbeRequest(Message, code=0x01):
+    requested_info: ListElement[ProbeInformationType] = ListElement(ProbeInformationType, default=(), maxsize=2**8 - 1)
+
+
+class ProbeResponse(Message, code=0x02):
+    probe_info: ListElement[ProbeInformation] = ListElement(ProbeInformation, default=(), maxsize=2**16 - 1)
 
 
 class JoinRequest(Message, code=0x0f):

@@ -107,6 +107,7 @@ __all__ = (  # noqa: RUF022
     'ForwardingOptionType',
     'HashAlgorithm',
     'MessageExtensionType',
+    'ProbeInformationType',
     'SignatureAlgorithm',
     'SignerIdentityType',
 
@@ -787,6 +788,13 @@ class HashAlgorithm(Enum):
 
 class MessageExtensionType(Enum, size=2):
     invalid = 0
+
+
+class ProbeInformationType(Enum):
+    invalid = 0
+    responsible_set = 1
+    num_resources = 2
+    uptime = 3
 
 
 class SignatureAlgorithm(Enum):
