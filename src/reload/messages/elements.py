@@ -275,12 +275,10 @@ class LinkedElementSpecification[T: DataWireProtocol, U]:
         if not self.type_map and self.fallback_type is None:
             raise TypeError(f'A {self.__class__.__qualname__!r} with an empty type_map must specify a fallback type')
         if self.fallback_type is not None:
-            if not isinstance(self.fallback_type, type) or not issubclass(self.fallback_type, Opaque):
-                raise TypeError('The fallback type must be an Opaque type or None')
-            if self.fallback_type._sizelen_ is NotImplemented:
-                raise TypeError('The fallback type cannot be an abstract Opaque type that does not define its size')
+            if not issubclass(self.fallback_type, Opaque) or self.fallback_type._sizelen_ is NotImplemented:
+                raise TypeError('The fallback type should either be None or an Opaque type which defines its size')
             if self.fallback_type._sizelen_ != self.length_type._size_:
-                raise TypeError(f'The fallback type must have the same size length as the length type ({self.fallback_type._sizelen_} != {self.length_type._size_})')
+                raise TypeError(f'The fallback type size length does not match the length type size ({self.fallback_type._sizelen_} != {self.length_type._size_})')
 
     def __repr__(self) -> str:
         type_map = {_reprproxy(name): _reprproxy(value) for name, value in self.type_map.items()}
