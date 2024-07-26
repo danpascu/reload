@@ -370,6 +370,8 @@ class Message(AnnotatedStructure):
 
     def __init_subclass__(cls, *, code: int = 0, **kw: object) -> None:
         super().__init_subclass__(**kw)
+        if cls._code_ != 0 and code == 0:
+            raise TypeError('When inheriting a message type with a non-zero code, the new type code must be different from 0')
         cls._code_ = UInt16(code)
         if cls._code_ != 0 and cls._registry_.setdefault(cls._code_, cls) is not cls:
             raise TypeError(f'Message code 0x{cls._code_:02x} is already used by {cls._registry_[cls._code_].__qualname__!r}')
