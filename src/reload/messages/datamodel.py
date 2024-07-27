@@ -153,6 +153,8 @@ class DataWireProtocol(Protocol):
 class DataWireAdapter[T](Protocol):
     """Wire protocol adapter for a RELOAD message data element of type T"""
 
+    _abstract_: ClassVar[bool] = True
+
     @staticmethod
     def from_wire(buffer: WireData) -> T:
         ...
@@ -198,6 +200,8 @@ def byte_length(number: int) -> int:
 # Adapters
 
 class BooleanAdapter:
+    _abstract_: ClassVar[bool] = False
+
     @staticmethod
     def from_wire(buffer: WireData) -> bool:
         if isinstance(buffer, BytesIO):
@@ -229,6 +233,7 @@ AdapterRegistry.associate(bool, BooleanAdapter)
 
 
 class IntegerAdapter:
+    _abstract_: ClassVar[bool] = True
     _bits_: ClassVar[int] = NotImplemented
     _size_: ClassVar[int] = NotImplemented
 
@@ -236,12 +241,11 @@ class IntegerAdapter:
         if bits is not NotImplemented:
             cls._bits_ = bits
             cls._size_ = bits // 8
+            cls._abstract_ = False
         super().__init_subclass__(**kw)
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> int:
-        if cls._size_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract integer adapter {cls.__qualname__!r} that does not define its bit length')
         if isinstance(buffer, BytesIO):
             data = buffer.read(cls._size_)
         else:
@@ -252,8 +256,6 @@ class IntegerAdapter:
 
     @classmethod
     def to_wire(cls, value: int, /) -> bytes:
-        if cls._size_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract integer adapter {cls.__qualname__!r} that does not define its bit length')
         return value.to_bytes(cls._size_, byteorder='big', signed=True)
 
     @classmethod
@@ -270,8 +272,6 @@ class IntegerAdapter:
 class UnsignedIntegerAdapter(IntegerAdapter):
     @classmethod
     def from_wire(cls, buffer: WireData) -> int:
-        if cls._size_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract unsigned integer adapter {cls.__qualname__!r} that does not define its bit length')
         if isinstance(buffer, BytesIO):
             data = buffer.read(cls._size_)
         else:
@@ -282,8 +282,6 @@ class UnsignedIntegerAdapter(IntegerAdapter):
 
     @classmethod
     def to_wire(cls, value: int, /) -> bytes:
-        if cls._size_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract unsigned integer adapter {cls.__qualname__!r} that does not define its bit length')
         return value.to_bytes(cls._size_, byteorder='big')
 
     @classmethod
@@ -340,6 +338,7 @@ class UInt128Adapter(UnsignedIntegerAdapter, bits=128):
 class OpaqueAdapter:
     """Adapter for a bytes buffer of up to maxsize bytes, prefixed with its length"""
 
+    _abstract_: ClassVar[bool] = True
     _maxsize_: ClassVar[int] = NotImplemented
     _sizelen_: ClassVar[int] = NotImplemented
 
@@ -347,12 +346,11 @@ class OpaqueAdapter:
         if maxsize is not NotImplemented:
             cls._maxsize_ = maxsize
             cls._sizelen_ = byte_length(maxsize)
+            cls._abstract_ = False
         super().__init_subclass__(**kw)
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> bytes:
-        if cls._sizelen_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract opaque adapter {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         length_data = buffer.read(cls._sizelen_)
@@ -384,6 +382,7 @@ class OpaqueAdapter:
 class StringAdapter:
     """Represent strings as UTF-8 encoded length prefixed bytes limited to maxsize"""
 
+    _abstract_: ClassVar[bool] = True
     _maxsize_: ClassVar[int] = NotImplemented
     _sizelen_: ClassVar[int] = NotImplemented
 
@@ -391,12 +390,11 @@ class StringAdapter:
         if maxsize is not NotImplemented:
             cls._maxsize_ = maxsize
             cls._sizelen_ = byte_length(maxsize)
+            cls._abstract_ = False
         super().__init_subclass__(**kw)
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> str:
-        if cls._sizelen_ is NotImplemented:
-            raise TypeError(f'Cannot use abstract string adapter {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         length_data = buffer.read(cls._sizelen_)
@@ -463,6 +461,7 @@ class String32Adapter(StringAdapter, maxsize=2**32 - 1):
 
 
 class IPv4AddressAdapter:
+    _abstract_: ClassVar[bool] = False
     _size_ = UInt32Adapter._size_
 
     @classmethod
@@ -489,6 +488,7 @@ class IPv4AddressAdapter:
 
 
 class IPv6AddressAdapter:
+    _abstract_: ClassVar[bool] = False
     _size_ = UInt128Adapter._size_
 
     @classmethod
@@ -515,6 +515,7 @@ class IPv6AddressAdapter:
 
 
 class CompositeAdapter[T: SizedDataWireProtocol]:
+    _abstract_: ClassVar[bool] = True
     _types_: tuple[type[T], ...] = NotImplemented
 
     def __init_subclass__(cls, **kw: object) -> None:
@@ -531,14 +532,13 @@ class CompositeAdapter[T: SizedDataWireProtocol]:
                         if len(sizes) != 1:
                             raise TypeError('All types must have the same byte size')
                         cls._types_ = types
+                        cls._abstract_ = False
                     case _:
                         raise TypeError(f'The {cls.__qualname__!r} type can only be parameterized with a union of types or a type variable')
         super().__init_subclass__(**kw)
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> T:
-        if cls._types_ is NotImplemented:
-            raise TypeError(f'Cannot use composite type adapter {cls.__qualname__!r} that does not define its types')
         size = cls._types_[0]._size_  # all types are of equal size
         if isinstance(buffer, BytesIO):
             data = buffer.read(size)

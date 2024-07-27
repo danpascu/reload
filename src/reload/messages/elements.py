@@ -181,6 +181,7 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
         return value
 
     def prepare(ns: dict) -> None:
+        ns['_abstract_'] = False
         ns['from_wire'] = staticmethod(proto.from_wire)
         ns['to_wire'] = staticmethod(proto.to_wire)
         ns['wire_length'] = staticmethod(proto.wire_length)
@@ -212,6 +213,8 @@ class Element[T](ElementDescriptor[T]):
                 adapter = AdapterRegistry.get_adapter(element_type)
         if adapter is None:
             raise TypeError('Either the element type must implement the DataWireProtocol or an adapter must be provided')
+        if adapter._abstract_:
+            raise TypeError(f'Cannot use abstract adapter {adapter.__qualname__!r} (need to select a concrete implementation of it, usually one that defines its size or value)')
         self.adapter = adapter
 
     def __repr__(self) -> str:
