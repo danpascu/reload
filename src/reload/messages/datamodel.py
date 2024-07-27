@@ -41,11 +41,17 @@ __all__ = (  # noqa: RUF022
     'UInt128Adapter',
 
     'OpaqueAdapter',
+    'StringAdapter',
 
     'Opaque8Adapter',
     'Opaque16Adapter',
     'Opaque24Adapter',
     'Opaque32Adapter',
+
+    'String8Adapter',
+    'String16Adapter',
+    'String24Adapter',
+    'String32Adapter',
 
     'IPv4AddressAdapter',
     'IPv6AddressAdapter',
@@ -375,6 +381,55 @@ class OpaqueAdapter:
         return value
 
 
+class StringAdapter:
+    """Represent strings as UTF-8 encoded length prefixed bytes limited to maxsize"""
+
+    _maxsize_: ClassVar[int] = NotImplemented
+    _sizelen_: ClassVar[int] = NotImplemented
+
+    def __init_subclass__(cls, *, maxsize: int = NotImplemented, **kw: object) -> None:
+        if maxsize is not NotImplemented:
+            cls._maxsize_ = maxsize
+            cls._sizelen_ = byte_length(maxsize)
+        super().__init_subclass__(**kw)
+
+    @classmethod
+    def from_wire(cls, buffer: WireData) -> str:
+        if cls._sizelen_ is NotImplemented:
+            raise TypeError(f'Cannot use abstract string adapter {cls.__qualname__!r} that does not define its max size')
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        length_data = buffer.read(cls._sizelen_)
+        if len(length_data) < cls._sizelen_:
+            raise ValueError('Insufficient data in buffer to extract the length of the string')
+        data_length = int.from_bytes(length_data, byteorder='big')
+        if data_length > cls._maxsize_:
+            raise ValueError(f'Data length is too big for the string ({data_length} > {cls._maxsize_})')
+        opaque_data = buffer.read(data_length)
+        if len(opaque_data) < data_length:
+            raise ValueError('Insufficient data in buffer to extract the bytes representation of the string')
+        try:
+            return opaque_data.decode()
+        except UnicodeDecodeError as exc:
+            raise ValueError(f'Cannot decode bytes to string: {exc}') from exc
+
+    @classmethod
+    def to_wire(cls, value: str, /) -> bytes:
+        data = value.encode()
+        return len(data).to_bytes(cls._sizelen_, byteorder='big') + data
+
+    @classmethod
+    def wire_length(cls, value: str, /) -> int:
+        return cls._sizelen_ + len(value.encode())
+
+    @classmethod
+    def validate(cls, value: str, /) -> str:
+        data = value.encode()
+        if len(data) > cls._maxsize_:
+            raise ValueError(f'Value is too long for string (max length is {cls._maxsize_}, value has {len(data)} bytes)')
+        return value
+
+
 class Opaque8Adapter(OpaqueAdapter, maxsize=2**8 - 1):
     pass
 
@@ -388,6 +443,22 @@ class Opaque24Adapter(OpaqueAdapter, maxsize=2**24 - 1):
 
 
 class Opaque32Adapter(OpaqueAdapter, maxsize=2**32 - 1):
+    pass
+
+
+class String8Adapter(StringAdapter, maxsize=2**8 - 1):
+    pass
+
+
+class String16Adapter(StringAdapter, maxsize=2**16 - 1):
+    pass
+
+
+class String24Adapter(StringAdapter, maxsize=2**24 - 1):
+    pass
+
+
+class String32Adapter(StringAdapter, maxsize=2**32 - 1):
     pass
 
 
