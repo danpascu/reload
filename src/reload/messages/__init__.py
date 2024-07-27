@@ -249,9 +249,9 @@ class ICECandidate(AnnotatedStructure):
     def to_candidate(self) -> Candidate:
         ice_address = self.addr_port.addr_port
         match self.related_address:
-            case IPAddressPort():
-                related_address = str(self.related_address.addr_port.addr)
-                related_port = self.related_address.addr_port.port
+            case IPAddressPort(addr_port=addr_port):
+                related_address = str(addr_port.addr)
+                related_port = addr_port.port
             case Empty():
                 related_address = None
                 related_port = None
