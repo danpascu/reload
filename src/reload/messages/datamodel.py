@@ -42,6 +42,8 @@ __all__ = (  # noqa: RUF022
 
     'OpaqueAdapter',
     'StringAdapter',
+    'LiteralBytesAdapter',
+    'LiteralStringAdapter',
 
     'Opaque8Adapter',
     'Opaque16Adapter',
@@ -425,6 +427,101 @@ class StringAdapter:
         data = value.encode()
         if len(data) > cls._maxsize_:
             raise ValueError(f'Value is too long for string (max length is {cls._maxsize_}, value has {len(data)} bytes)')
+        return value
+
+
+class LiteralBytesAdapter:
+    """Adapter for a literal bytes value with or without a length prefix"""
+
+    _abstract_: ClassVar[bool] = True
+    _static_value_: ClassVar[bytes] = NotImplemented
+    _wire_content_: ClassVar[bytes] = NotImplemented
+
+    def __init_subclass__(cls, *, value: bytes, maxsize: int = NotImplemented, **kw: object) -> None:
+        cls._static_value_ = value
+        if maxsize is not NotImplemented:
+            value_length = len(value)
+            if value_length > maxsize:
+                raise TypeError('The literal value has more than maxsize bytes')
+            cls._wire_content_ = value_length.to_bytes(byte_length(maxsize), byteorder='big') + value
+        else:
+            cls._wire_content_ = value
+        cls._abstract_ = False
+        super().__init_subclass__(**kw)
+
+    @classmethod
+    def from_wire(cls, buffer: WireData) -> bytes:
+        wire_length = len(cls._wire_content_)
+        if isinstance(buffer, BytesIO):
+            data = buffer.read(wire_length)
+        else:
+            data = buffer[:wire_length]
+        if len(data) < wire_length:
+            raise ValueError(f'Insufficient data in buffer to extract literal bytes {cls._static_value_!r}')
+        if data != cls._wire_content_:
+            raise ValueError(f'Value on wire does not match literal bytes {cls._static_value_!r} (wire content {data!r} != {cls._wire_content_!r})')
+        return cls._static_value_
+
+    @classmethod
+    def to_wire(cls, _: bytes, /) -> bytes:
+        return cls._wire_content_
+
+    @classmethod
+    def wire_length(cls, _: bytes, /) -> int:
+        return len(cls._wire_content_)
+
+    @classmethod
+    def validate(cls, value: bytes, /) -> bytes:
+        if value != cls._static_value_:
+            raise ValueError(f'Invalid literal bytes value (expected {cls._static_value_!r}, got {value!r})')
+        return value
+
+
+class LiteralStringAdapter:
+    """Adapter for a literal string value with or without a length prefix"""
+
+    _abstract_: ClassVar[bool] = True
+    _static_value_: ClassVar[str] = NotImplemented
+    _wire_content_: ClassVar[bytes] = NotImplemented
+
+    def __init_subclass__(cls, *, value: str, maxsize: int = NotImplemented, **kw: object) -> None:
+        cls._static_value_ = value
+        bytes_value = value.encode()
+        if maxsize is not NotImplemented:
+            bytes_length = len(bytes_value)
+            if bytes_length > maxsize:
+                raise TypeError('The literal value has more than maxsize bytes')
+            cls._wire_content_ = bytes_length.to_bytes(byte_length(maxsize), byteorder='big') + bytes_value
+        else:
+            cls._wire_content_ = bytes_value
+        cls._abstract_ = False
+        super().__init_subclass__(**kw)
+
+    @classmethod
+    def from_wire(cls, buffer: WireData) -> str:
+        wire_length = len(cls._wire_content_)
+        if isinstance(buffer, BytesIO):
+            data = buffer.read(wire_length)
+        else:
+            data = buffer[:wire_length]
+        if len(data) < wire_length:
+            raise ValueError(f'Insufficient data in buffer to extract literal string {cls._static_value_!r}')
+        if data != cls._wire_content_:
+            raise ValueError(f'Value on wire does not match literal string {cls._static_value_!r} (wire content {data!r} != {cls._wire_content_!r})')
+        return cls._static_value_
+
+    @classmethod
+    def to_wire(cls, _: str, /) -> bytes:
+        return cls._wire_content_
+
+    @classmethod
+    def wire_length(cls, _: str, /) -> int:
+        return len(cls._wire_content_)
+
+    @classmethod
+    def validate(cls, value: str, /) -> str:
+        if value != cls._static_value_:
+            raise ValueError(f'Invalid literal string value (expected {cls._static_value_!r}, got {value!r})')
         return value
 
 
