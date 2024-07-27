@@ -346,7 +346,7 @@ class OpaqueAdapter:
     @classmethod
     def from_wire(cls, buffer: WireData) -> bytes:
         if cls._sizelen_ is NotImplemented:
-            raise TypeError(f'Cannot use variable length bytes adapter {cls.__qualname__!r} that does not define its max size')
+            raise TypeError(f'Cannot use abstract opaque adapter {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         length_data = buffer.read(cls._sizelen_)
