@@ -145,6 +145,8 @@ __all__ = (  # noqa: RUF022
     'RouteQueryResponse',
     'PingRequest',
     'PingResponse',
+    'AppAttachRequest',
+    'AppAttachResponse',
     'ErrorResponse',
 
     # Overlay specific message extensions
@@ -551,6 +553,19 @@ class PingRequest(Message, code=0x17):
 class PingResponse(Message, code=0x18):
     id: Element[int] = Element(int, adapter=UInt64Adapter)
     time: Element[int] = Element(int, adapter=UInt64Adapter)
+
+
+class AppAttachRequest(Message, code=0x1d):
+    username: Element[str] = Element(str, adapter=String8Adapter)
+    password: Element[str] = Element(str, adapter=String8Adapter)
+    application: Element[int] = Element(int, adapter=UInt16Adapter)
+    role: Element[str] = Element(str, default=PassiveRoleAdapter._static_value_, adapter=PassiveRoleAdapter)
+    candidates: ListElement[ICECandidate] = ListElement(ICECandidate, maxsize=2**16 - 1)
+
+
+# The response has the same structure as the request, but with a different code and a different role value
+class AppAttachResponse(AppAttachRequest, code=0x1e):
+    role: Element[str] = Element(str, default=ActiveRoleAdapter._static_value_, adapter=ActiveRoleAdapter)
 
 
 class ErrorResponse(Message, code=0xffff):
