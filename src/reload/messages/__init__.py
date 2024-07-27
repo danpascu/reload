@@ -58,6 +58,7 @@ from reload.configuration import Configuration
 
 from .datamodel import (
     AddressType,
+    CandidateType,
     CertificateType,
     ChordLeaveType,
     ChordUpdateType,
@@ -69,6 +70,7 @@ from .datamodel import (
     HashAlgorithm,
     IPv4AddressAdapter,
     IPv6AddressAdapter,
+    LiteralStringAdapter,
     MessageExtensionType,
     NodeID,
     NoLength,
@@ -79,10 +81,13 @@ from .datamodel import (
     Opaque32,
     Opaque32Adapter,
     OpaqueID,
+    OverlayLinkType,
     ProbeInformationType,
     ResourceID,
     SignatureAlgorithm,
     SignerIdentityType,
+    String8Adapter,
+    String16Adapter,
     UInt8,
     UInt8Adapter,
     UInt16,
@@ -97,9 +102,13 @@ from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementS
 __all__ = (  # noqa: RUF022
     # Generic elements
     'Empty',
+
+    # Link related elements
     'IPv4AddrPort',
     'IPv6AddrPort',
     'IPAddressPort',
+    'ICEExtension',
+    'ICECandidate',
 
     # Routing and topology elements
     'Destination',
@@ -122,6 +131,8 @@ __all__ = (  # noqa: RUF022
 
     'ProbeRequest',
     'ProbeResponse',
+    'AttachRequest',
+    'AttachResponse',
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
@@ -158,6 +169,8 @@ class Empty(AnnotatedStructure):
     pass
 
 
+# Link related elements
+
 class IPv4AddrPort(AnnotatedStructure):
     addr: Element[IPv4Address] = Element(IPv4Address, adapter=IPv4AddressAdapter)
     port: Element[int] = Element(int, adapter=UInt16Adapter)
@@ -183,6 +196,30 @@ class IPAddressPort(AnnotatedStructure):
 
     type: Element[AddressType] = Element(AddressType)
     addr_port: LinkedElement[IPv4AddrPort | IPv6AddrPort, AddressType] = LinkedElement(linked_field=type, specification=_addr_port_specification)
+
+
+class ICEExtension(AnnotatedStructure):
+    name: Element[str] = Element(str, adapter=String16Adapter)
+    value: Element[str] = Element(str, default='', adapter=String16Adapter)
+
+
+class ICECandidate(AnnotatedStructure):
+    _related_address_specification: ClassVar = LinkedElementSpecification[IPAddressPort | Empty, CandidateType](
+        type_map={
+            CandidateType.host: Empty,
+            CandidateType.srflx: IPAddressPort,
+            CandidateType.relay: IPAddressPort,
+        },
+        length_type=NoLength,
+    )
+
+    addr_port: Element[IPAddressPort] = Element(IPAddressPort)
+    link_type: Element[OverlayLinkType] = Element(OverlayLinkType, default=OverlayLinkType.DTLS_UDP_SR)
+    foundation: Element[str] = Element(str, adapter=String8Adapter)
+    priority: Element[int] = Element(int, adapter=UInt32Adapter)
+    type: Element[CandidateType] = Element(CandidateType)
+    related_address: LinkedElement[IPAddressPort | Empty, CandidateType] = LinkedElement(linked_field=type, specification=_related_address_specification)
+    extensions: ListElement[ICEExtension] = ListElement(ICEExtension, default=(), maxsize=2**16 - 1)
 
 
 # Routing and topology elements
@@ -356,6 +393,16 @@ class Signature(AnnotatedStructure):
     value: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
 
 
+# Custom adapters for messages
+
+class ActiveRoleAdapter(LiteralStringAdapter, value='active', maxsize=2**8 - 1):
+    pass
+
+
+class PassiveRoleAdapter(LiteralStringAdapter, value='passive', maxsize=2**8 - 1):
+    pass
+
+
 # Messages (the requests and responses for the overlay methods)
 
 type MessageType = type[Message]
@@ -389,6 +436,19 @@ class ProbeRequest(Message, code=0x01):
 
 class ProbeResponse(Message, code=0x02):
     probe_info: ListElement[ProbeInformation] = ListElement(ProbeInformation, default=(), maxsize=2**16 - 1)
+
+
+class AttachRequest(Message, code=0x03):
+    username: Element[str] = Element(str, adapter=String8Adapter)
+    password: Element[str] = Element(str, adapter=String8Adapter)
+    role: Element[str] = Element(str, default=PassiveRoleAdapter._static_value_, adapter=PassiveRoleAdapter)
+    candidates: ListElement[ICECandidate] = ListElement(ICECandidate, maxsize=2**16 - 1)
+    send_update: Element[bool] = Element(bool, default=False)
+
+
+# The response has the same structure as the request, but with a different code and a different role value
+class AttachResponse(AttachRequest, code=0x04):
+    role: Element[str] = Element(str, default=ActiveRoleAdapter._static_value_, adapter=ActiveRoleAdapter)
 
 
 class JoinRequest(Message, code=0x0f):

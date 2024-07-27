@@ -106,6 +106,7 @@ __all__ = (  # noqa: RUF022
     'NoLength',
 
     'AddressType',
+    'CandidateType',
     'CertificateType',
     'ChordLeaveType',
     'ChordUpdateType',
@@ -115,6 +116,7 @@ __all__ = (  # noqa: RUF022
     'ForwardingOptionType',
     'HashAlgorithm',
     'MessageExtensionType',
+    'OverlayLinkType',
     'ProbeInformationType',
     'SignatureAlgorithm',
     'SignerIdentityType',
@@ -880,6 +882,13 @@ class AddressType(Enum):
     ipv6_address = 2
 
 
+class CandidateType(Enum):
+    invalid = 0
+    host = 1
+    srflx = 2
+    relay = 4
+
+
 class CertificateType(Enum):
     X509 = 0
     # OpenPGP = 1  # not used by RELOAD  # noqa: ERA001
@@ -956,6 +965,13 @@ class HashAlgorithm(Enum):
 
 class MessageExtensionType(Enum, size=2):
     invalid = 0
+
+
+class OverlayLinkType(Enum):
+    invalid = 0
+    DTLS_UDP_SR = 1
+    DTLS_UDP_SR_NO_ICE = 3
+    TLS_TCP_FH_NO_ICE = 4
 
 
 class ProbeInformationType(Enum):
