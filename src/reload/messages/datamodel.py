@@ -822,6 +822,15 @@ uint128 = UInt128
 class NoLength(UnsignedInteger, bits=0):
     """Special type for LinkedElements that do not have a length prefix"""
 
+    @overload
+    def __new__(cls, x: ConvertibleToInt = ..., /) -> Self: ...
+
+    @overload
+    def __new__(cls, x: str | Buffer, /, base: SupportsIndex) -> Self: ...
+
+    def __new__(cls, *_args, **_kw) -> Self:
+        return super(UnsignedInteger, cls).__new__(cls)
+
     def __repr__(self) -> str:
         return f'{self.__class__.__qualname__}()'
 
