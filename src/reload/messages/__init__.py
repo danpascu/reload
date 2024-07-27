@@ -50,9 +50,11 @@ import struct
 from collections.abc import MutableMapping, Sequence
 from functools import lru_cache
 from io import BytesIO
-from ipaddress import IPv4Address, IPv6Address
+from ipaddress import IPv4Address, IPv6Address, ip_address
 from secrets import randbelow
 from typing import ClassVar, Self
+
+from aioice.candidate import Candidate
 
 from reload.configuration import Configuration
 
@@ -197,6 +199,15 @@ class IPAddressPort(AnnotatedStructure):
     type: Element[AddressType] = Element(AddressType)
     addr_port: LinkedElement[IPv4AddrPort | IPv6AddrPort, AddressType] = LinkedElement(linked_field=type, specification=_addr_port_specification)
 
+    @classmethod
+    def from_address(cls, host: str, port: int) -> Self:
+        address = ip_address(host)
+        match address:
+            case IPv4Address():
+                return cls(type=AddressType.ipv4_address, addr_port=IPv4AddrPort(addr=address, port=port))
+            case IPv6Address():
+                return cls(type=AddressType.ipv6_address, addr_port=IPv6AddrPort(addr=address, port=port))
+
 
 class ICEExtension(AnnotatedStructure):
     name: Element[str] = Element(str, adapter=String16Adapter)
@@ -220,6 +231,41 @@ class ICECandidate(AnnotatedStructure):
     type: Element[CandidateType] = Element(CandidateType)
     related_address: LinkedElement[IPAddressPort | Empty, CandidateType] = LinkedElement(linked_field=type, specification=_related_address_specification)
     extensions: ListElement[ICEExtension] = ListElement(ICEExtension, default=(), maxsize=2**16 - 1)
+
+    @classmethod
+    def from_candidate(cls, candidate: Candidate) -> Self:
+        if candidate.related_address is not None and candidate.related_port is not None:
+            related_address = IPAddressPort.from_address(candidate.related_address, candidate.related_port)
+        else:
+            related_address = Empty()
+        return cls(
+            addr_port=IPAddressPort.from_address(candidate.host, candidate.port),
+            foundation=candidate.foundation,
+            priority=candidate.priority,
+            type=CandidateType[candidate.type],
+            related_address=related_address,
+        )
+
+    def to_candidate(self) -> Candidate:
+        ice_address = self.addr_port.addr_port
+        match self.related_address:
+            case IPAddressPort():
+                related_address = str(self.related_address.addr_port.addr)
+                related_port = self.related_address.addr_port.port
+            case Empty():
+                related_address = None
+                related_port = None
+        return Candidate(
+            foundation=self.foundation,
+            component=1,
+            transport='udp',
+            priority=self.priority,
+            host=str(ice_address.addr),
+            port=ice_address.port,
+            type=self.type.name,
+            related_address=related_address,
+            related_port=related_port,
+        )
 
 
 # Routing and topology elements
