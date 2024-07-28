@@ -187,7 +187,11 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
         ns['wire_length'] = staticmethod(proto.wire_length)
         ns['validate'] = staticmethod(noop_validate)
 
-    return new_class(f'{proto.__name__}AdapterStandIn', (DataWireAdapter[T],), exec_body=prepare)
+    adapter = new_class(f'{proto.__name__}AdapterStandIn', (DataWireAdapter[T],), exec_body=prepare)
+    adapter.__module__ = __name__
+    adapter.__qualname__ = f'_protocol2adapter.<generated>.{adapter.__name__}'
+
+    return adapter
 
 
 # Field descriptor implementations
