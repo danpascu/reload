@@ -65,6 +65,7 @@ from .datamodel import (
     ChordLeaveType,
     ChordUpdateType,
     CompositeAdapter,
+    ConfigUpdateType,
     DestinationType,
     ErrorCode,
     ForwardingFlags,
@@ -80,6 +81,7 @@ from .datamodel import (
     Opaque8Adapter,
     Opaque16,
     Opaque16Adapter,
+    Opaque24,
     Opaque32,
     Opaque32Adapter,
     OpaqueID,
@@ -97,6 +99,7 @@ from .datamodel import (
     UInt32,
     UInt32Adapter,
     UInt64Adapter,
+    VariableLengthList,
     WireData,
 )
 from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementSpecification, ListElement, Structure
@@ -104,6 +107,7 @@ from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementS
 __all__ = (  # noqa: RUF022
     # Generic elements
     'Empty',
+    'KindDescriptionList',
 
     # Link related elements
     'IPv4AddrPort',
@@ -147,6 +151,8 @@ __all__ = (  # noqa: RUF022
     'PingResponse',
     'AppAttachRequest',
     'AppAttachResponse',
+    'ConfigUpdateRequest',
+    'ConfigUpdateResponse',
     'ErrorResponse',
 
     # Overlay specific message extensions
@@ -170,6 +176,11 @@ RELO_TOKEN = b'\xd2ELO'  # 'RELO' with the high bit of the 1st character set to 
 # Generic elements
 
 class Empty(AnnotatedStructure):
+    pass
+
+
+# Holds one or more XML kind-block elements encoded as Opaque16 bytes
+class KindDescriptionList(VariableLengthList[Opaque16], maxsize=2**24 - 1):
     pass
 
 
@@ -451,6 +462,10 @@ class PassiveRoleAdapter(LiteralStringAdapter, value='passive', maxsize=2**8 - 1
     pass
 
 
+class ConfigUpdateAdapter(CompositeAdapter[ConfigUpdateType | UInt8]):
+    pass
+
+
 # Messages (the requests and responses for the overlay methods)
 
 type MessageType = type[Message]
@@ -566,6 +581,24 @@ class AppAttachRequest(Message, code=0x1d):
 # The response has the same structure as the request, but with a different code and a different role value
 class AppAttachResponse(AppAttachRequest, code=0x1e):
     role: Element[str] = Element(str, default=ActiveRoleAdapter._static_value_, adapter=ActiveRoleAdapter)
+
+
+class ConfigUpdateRequest(Message, code=0x21):
+    _data_specification: ClassVar = LinkedElementSpecification[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8](
+        type_map={
+            ConfigUpdateType.config: Opaque24,
+            ConfigUpdateType.kind: KindDescriptionList,
+        },
+        fallback_type=Opaque32,
+        length_type=UInt32,
+    )
+
+    type: Element[ConfigUpdateType | UInt8] = Element(ConfigUpdateType | UInt8, adapter=ConfigUpdateAdapter)
+    data: LinkedElement[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8] = LinkedElement(linked_field=type, specification=_data_specification)
+
+
+class ConfigUpdateResponse(Message, code=0x22):
+    pass
 
 
 class ErrorResponse(Message, code=0xffff):

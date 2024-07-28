@@ -110,6 +110,7 @@ __all__ = (  # noqa: RUF022
     'CertificateType',
     'ChordLeaveType',
     'ChordUpdateType',
+    'ConfigUpdateType',
     'DestinationType',
     'ErrorCode',
     'ForwardingFlags',
@@ -914,6 +915,12 @@ class ChordUpdateType(Enum):
     peer_ready = 1
     neighbors = 2
     full = 3
+
+
+class ConfigUpdateType(Enum):
+    invalid = 0
+    config = 1
+    kind = 2
 
 
 class DestinationType(Enum):
