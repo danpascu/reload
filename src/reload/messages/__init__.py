@@ -158,14 +158,14 @@ __all__ = (  # noqa: RUF022
     # Overlay specific message extensions
     'ChordLeaveData',
 
-    # Helpers
-    'new_transaction_id',
-    'overlay_id',
-
     # Toplevel structures
     'ForwardingHeader',
     'MessageContents',
     'SecurityBlock',
+
+    # Helpers
+    'new_transaction_id',
+    'overlay_id',
 )
 
 
@@ -613,19 +613,6 @@ class ChordLeaveData(AnnotatedStructure):
     node_list: ListElement[NodeID] = ListElement(NodeID, maxsize=2**16 - 1)
 
 
-# helpers
-
-def new_transaction_id() -> int:
-    return randbelow(2**64 - 1)
-
-
-@lru_cache
-def overlay_id(overlay: str | bytes) -> int:
-    if isinstance(overlay, str):
-        overlay = overlay.encode()
-    return int.from_bytes(hashlib.sha1(overlay, usedforsecurity=False).digest()[-4:])
-
-
 # Toplevel structures
 
 class ForwardingHeader(AnnotatedStructure):
@@ -759,3 +746,16 @@ class MessageContents(AnnotatedStructure):
 class SecurityBlock(AnnotatedStructure):
     certificates: ListElement[GenericCertificate] = ListElement(GenericCertificate, default=(), maxsize=2**16 - 1)
     signature: Element[Signature] = Element(Signature)
+
+
+# helpers
+
+def new_transaction_id() -> int:
+    return randbelow(2**64 - 1)
+
+
+@lru_cache
+def overlay_id(overlay: str | bytes) -> int:
+    if isinstance(overlay, str):
+        overlay = overlay.encode()
+    return int.from_bytes(hashlib.sha1(overlay, usedforsecurity=False).digest()[-4:])
