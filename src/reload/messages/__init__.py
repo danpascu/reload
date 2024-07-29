@@ -70,6 +70,7 @@ from .datamodel import (
     ErrorCode,
     ForwardingFlags,
     ForwardingOptionType,
+    FramedMessageType,
     HashAlgorithm,
     IPv4AddressAdapter,
     IPv6AddressAdapter,
@@ -82,6 +83,7 @@ from .datamodel import (
     Opaque16,
     Opaque16Adapter,
     Opaque24,
+    Opaque24Adapter,
     Opaque32,
     Opaque32Adapter,
     OpaqueID,
@@ -131,6 +133,10 @@ __all__ = (  # noqa: RUF022
     'SignatureAndHashAlgorithm',
     'SignerIdentity',
     'Signature',
+
+    # Framing elements
+    'AckFrame',
+    'DataFrame',
 
     # Messages (the requests and responses for the overlay methods)
     'Message',
@@ -452,6 +458,18 @@ class Signature(AnnotatedStructure):
     value: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
 
 
+# Framing elements
+
+class AckFrame(AnnotatedStructure):
+    sequence: Element[int] = Element(int, adapter=UInt32Adapter)  # This is the sequence number of the data frame being acknowledged
+    received: Element[int] = Element(int, adapter=UInt32Adapter)
+
+
+class DataFrame(AnnotatedStructure):
+    sequence: Element[int] = Element(int, adapter=UInt32Adapter)
+    message: Element[bytes] = Element(bytes, adapter=Opaque24Adapter)
+
+
 # Custom adapters for messages
 
 class ActiveRoleAdapter(LiteralStringAdapter, value='active', maxsize=2**8 - 1):
@@ -746,6 +764,19 @@ class MessageContents(AnnotatedStructure):
 class SecurityBlock(AnnotatedStructure):
     certificates: ListElement[GenericCertificate] = ListElement(GenericCertificate, default=(), maxsize=2**16 - 1)
     signature: Element[Signature] = Element(Signature)
+
+
+class FramedMessage(AnnotatedStructure):
+    _frame_specification = LinkedElementSpecification[DataFrame | AckFrame, FramedMessageType](
+        type_map={
+            FramedMessageType.data: DataFrame,
+            FramedMessageType.ack: AckFrame,
+        },
+        length_type=NoLength,
+    )
+
+    type: Element[FramedMessageType] = Element(FramedMessageType)
+    frame: LinkedElement[DataFrame | AckFrame, FramedMessageType] = LinkedElement(linked_field=type, specification=_frame_specification)
 
 
 # helpers

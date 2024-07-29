@@ -115,6 +115,7 @@ __all__ = (  # noqa: RUF022
     'ErrorCode',
     'ForwardingFlags',
     'ForwardingOptionType',
+    'FramedMessageType',
     'HashAlgorithm',
     'MessageExtensionType',
     'OverlayLinkType',
@@ -965,6 +966,11 @@ class ForwardingFlags(Flag):
 
 class ForwardingOptionType(Enum):
     invalid = 0
+
+
+class FramedMessageType(Enum):
+    data = 128
+    ack = 129
 
 
 class HashAlgorithm(Enum):
