@@ -779,7 +779,7 @@ class FramedMessage(AnnotatedStructure):
     frame: LinkedElement[DataFrame | AckFrame, FramedMessageType] = LinkedElement(linked_field=type, specification=_frame_specification)
 
 
-# helpers
+# Helpers
 
 def new_transaction_id() -> int:
     return randbelow(2**64 - 1)
