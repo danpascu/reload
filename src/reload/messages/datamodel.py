@@ -1286,9 +1286,14 @@ class VariableLengthList[T: DataWireProtocol](List[T]):
             cls._sizelen_ = byte_length(maxsize)
         super().__init_subclass__(**kw)
 
+    def __init__(self, iterable: Iterable[T] = (), /) -> None:
+        if self._sizelen_ is NotImplemented:
+            raise TypeError(f'Cannot instantiate abstract variable length list {self.__class__.__qualname__!r} that does not define its max size')
+        super().__init__(iterable)
+
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
-        if cls._maxsize_ is None:
+        if cls._sizelen_ is NotImplemented:
             raise TypeError(f'Cannot instantiate variable length list {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
