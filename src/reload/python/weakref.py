@@ -224,9 +224,12 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     def pop(self, key: K, /) -> V: ...
 
     @overload
+    def pop(self, key: K, /, default: V) -> V: ...
+
+    @overload
     def pop[T](self, key: K, /, default: T) -> V | T: ...
 
-    def pop[T](self, key: K, /, default: T | Literal[Marker.MissingArgument] = Marker.MissingArgument) -> V | T:
+    def pop[T](self, key: K, /, default: V | T | Literal[Marker.MissingArgument] = Marker.MissingArgument) -> V | T:
         try:
             if default is Marker.MissingArgument:
                 return self.__data__.pop(id(key))
