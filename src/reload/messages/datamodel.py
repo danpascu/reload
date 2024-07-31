@@ -8,7 +8,7 @@ from collections.abc import Buffer, Iterable, MutableMapping
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from secrets import token_bytes as secure_random_bytes
-from types import GenericAlias, UnionType, new_class
+from types import GenericAlias, NotImplementedType, UnionType, new_class
 from typing import Any, ClassVar, Protocol, Self, SupportsBytes, SupportsIndex, SupportsInt, TypeVar, cast, overload, runtime_checkable
 
 __all__ = (  # noqa: RUF022
@@ -1230,7 +1230,7 @@ class ResourceID(OpaqueID):
 # List types
 
 class List[T: DataWireProtocol](list[T]):
-    _type_: type[T] = NotImplemented
+    _type_: type[T] = NotImplementedType
 
     def __init_subclass__(cls, *, custom_repr: bool = True, **kw: object) -> None:
         if not custom_repr:
@@ -1249,7 +1249,7 @@ class List[T: DataWireProtocol](list[T]):
         super().__init_subclass__(**kw)
 
     def __init__(self, iterable: Iterable[T] = (), /) -> None:
-        if self._type_ is NotImplemented:
+        if self._type_ is NotImplementedType:
             raise TypeError(f'Cannot instantiate abstract list {self.__class__.__qualname__!r} that does not define its item type')
         super().__init__(iterable)
 
@@ -1258,7 +1258,7 @@ class List[T: DataWireProtocol](list[T]):
 
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
-        if cls._type_ is NotImplemented:
+        if cls._type_ is NotImplementedType:
             raise TypeError(f'Cannot instantiate abstract list {cls.__qualname__!r} that does not define its item type')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
