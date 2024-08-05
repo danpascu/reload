@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
 from enum import Enum
 from functools import reduce
@@ -14,9 +15,11 @@ from operator import or_
 from types import NoneType, UnionType, new_class
 from typing import ClassVar, Self, cast, dataclass_transform, overload
 
+from reload.python.contextvars import run_in_context
+
 from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
-__all__ = 'AnnotatedStructure', 'Structure', 'Element', 'LinkedElement', 'LinkedElementSpecification', 'ListElement'  # noqa: RUF022
+__all__ = 'AnnotatedStructure', 'Structure', 'ContextSpec', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
 
 
 class Structure:  # noqa: PLW1641
@@ -27,6 +30,8 @@ class Structure:  # noqa: PLW1641
     _all_arguments: ClassVar[frozenset[str]]
     _mandatory_arguments: ClassVar[frozenset[str]]
     _default_arguments: ClassVar[dict[str, object]]
+
+    _from_wire_running: ContextVar[bool] = ContextVar('_from_wire_running')
 
     def __new__(cls, **kw: object) -> Self:
         if not cls._all_arguments.issuperset(kw):
@@ -65,6 +70,7 @@ class Structure:  # noqa: PLW1641
         return NotImplemented
 
     @classmethod
+    @run_in_context(sentinel=_from_wire_running)
     def from_wire(cls, buffer: WireData) -> Self:
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
@@ -80,69 +86,31 @@ class Structure:  # noqa: PLW1641
         return sum(field.wire_length(self) for field in self._fields_.values())
 
 
-type DataWireAdapterType[T] = type[DataWireAdapter[T]]
+# Classes to help create Structures that have ContextVar dependent elements, by executing
+# their constructor in a given context with given variables initialized to certain values.
+
+class ContextSpec[T]:
+    def __init__(self, context_vars: Mapping[ContextVar[T], T]) -> None:
+        self.context_vars = context_vars
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__qualname__}: {', '.join(f'{var.name}={value!r}' for var, value in self.context_vars.items())}'
+
+    def setup(self) -> None:
+        # This method should be called while running in the new context
+        for var, value in self.context_vars.items():
+            var.set(value)
 
 
-# Field descriptor specifications
+class ContextStructure[T: Structure, U, **P]:
+    def __init__(self, struct_type: Callable[P, T], context_spec: ContextSpec[U], /) -> None:
+        self.type = struct_type
+        self.context_spec = context_spec
 
-class FieldDescriptor(ABC):
-    name: str | None
-
-    @property
-    @abstractmethod
-    def signature_parameter(self) -> Parameter: ...
-
-    @abstractmethod
-    def from_wire(self, instance: Structure, buffer: WireData) -> None: ...
-
-    @abstractmethod
-    def to_wire(self, instance: Structure) -> bytes: ...
-
-    @abstractmethod
-    def wire_length(self, instance: Structure) -> int: ...
-
-
-class ElementDescriptor[T](FieldDescriptor):
-    name: str | None
-    type: type[T] | UnionType
-    default: T
-    adapter: DataWireAdapterType[T]
-
-    @property
-    def signature_parameter(self) -> Parameter:
-        assert self.name is not None  # noqa: S101 (used by type checkers)
-        kwds = {} if self.default is NotImplemented else {'default': self.default}
-        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type, **kwds)
-
-
-class LinkedElementDescriptor[T, U](FieldDescriptor):
-    name: str | None
-    linked_field: ElementDescriptor[U]
-    type_map: Mapping[U, type[T]]
-    fallback_type: type[T] | None
-    length_type: type[UnsignedInteger]
-    default: T
-
-    @property
-    def signature_parameter(self) -> Parameter:
-        assert self.name is not None  # noqa: S101 (used by type checkers)
-        kwds = {} if self.default is NotImplemented else {'default': self.default}
-        annotation = reduce(or_, chain(self.type_map.values(), [self.fallback_type] if self.fallback_type is not None else []))
-        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=annotation, **kwds)
-
-
-class ListElementDescriptor[T: DataWireProtocol](FieldDescriptor):
-    name: str | None
-    maxsize: int | None
-    default: Sequence[T]
-    item_type: type[T]
-    list_type: type[List[T]]
-
-    @property
-    def signature_parameter(self) -> Parameter:
-        assert self.name is not None  # noqa: S101 (used by type checkers)
-        kwds = {} if self.default is NotImplemented else {'default': self.default}
-        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=list[self.item_type], **kwds)  # type: ignore[name-defined]
+    def __call__(self, *args: P.args, **kw: P.kwargs) -> T:
+        ctx = copy_context()
+        ctx.run(self.context_spec.setup)
+        return ctx.run(self.type, *args, **kw)
 
 
 # Helpers
@@ -194,20 +162,89 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
     return adapter
 
 
+type DataWireAdapterType[T] = type[DataWireAdapter[T]]
+
+type ContextSetter[T] = Callable[[T], None]
+
+
+# Field descriptor specifications
+
+class FieldDescriptor(ABC):
+    name: str | None
+
+    @property
+    @abstractmethod
+    def signature_parameter(self) -> Parameter: ...
+
+    @abstractmethod
+    def from_wire(self, instance: Structure, buffer: WireData) -> None: ...
+
+    @abstractmethod
+    def to_wire(self, instance: Structure) -> bytes: ...
+
+    @abstractmethod
+    def wire_length(self, instance: Structure) -> int: ...
+
+
+class ElementDescriptor[T](FieldDescriptor):
+    name: str | None
+    type: type[T] | UnionType
+    default: T
+    adapter: DataWireAdapterType[T]
+    context_setter: ContextSetter[T] | None
+
+    @property
+    def signature_parameter(self) -> Parameter:
+        assert self.name is not None  # noqa: S101 (used by type checkers)
+        kwds = {} if self.default is NotImplemented else {'default': self.default}
+        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=self.type, **kwds)
+
+
+class DependentElementDescriptor[T, U](FieldDescriptor):
+    name: str | None
+    type_map: Mapping[U, type[T]]
+    fallback_type: type[T] | None
+    length_type: type[UnsignedInteger]
+    check_length: bool
+    default: T
+
+    @property
+    def signature_parameter(self) -> Parameter:
+        assert self.name is not None  # noqa: S101 (used by type checkers)
+        kwds = {} if self.default is NotImplemented else {'default': self.default}
+        annotation = reduce(or_, chain(self.type_map.values(), [self.fallback_type] if self.fallback_type is not None else []))
+        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=annotation, **kwds)
+
+
+class ListElementDescriptor[T: DataWireProtocol](FieldDescriptor):
+    name: str | None
+    maxsize: int | None
+    default: Sequence[T]
+    item_type: type[T]
+    list_type: type[List[T]]
+
+    @property
+    def signature_parameter(self) -> Parameter:
+        assert self.name is not None  # noqa: S101 (used by type checkers)
+        kwds = {} if self.default is NotImplemented else {'default': self.default}
+        return Parameter(name=self.name, kind=Parameter.KEYWORD_ONLY, annotation=list[self.item_type], **kwds)  # type: ignore[name-defined]
+
+
 # Field descriptor implementations
 
 class Element[T](ElementDescriptor[T]):
     @overload
-    def __init__(self, element_type: type[T], /, *, default: T = ..., adapter: DataWireAdapterType[T] | None = ...) -> None: ...
+    def __init__(self, element_type: type[T], /, *, default: T = ..., adapter: DataWireAdapterType[T] | None = ..., context_setter: ContextSetter[T] | None = ...) -> None: ...
 
     @overload
-    def __init__(self, element_type: UnionType, /, *, default: T = ..., adapter: DataWireAdapterType[T]) -> None: ...
+    def __init__(self, element_type: UnionType, /, *, default: T = ..., adapter: DataWireAdapterType[T], context_setter: ContextSetter[T] | None = ...) -> None: ...
 
-    def __init__(self, element_type: type[T] | UnionType, /, *, default: T = NotImplemented, adapter: DataWireAdapterType[T] | None = None) -> None:
+    def __init__(self, element_type: type[T] | UnionType, /, *, default: T = NotImplemented, adapter: DataWireAdapterType[T] | None = None, context_setter: ContextSetter[T] | None = None) -> None:
         self.name = None
         self.type = element_type
         self.default = default
         self.provided_adapter = adapter
+        self.context_setter = context_setter
         if adapter is None:
             if isinstance(element_type, UnionType):
                 raise TypeError('When the element type is a union of types a composite adapter for the same types must be provided')
@@ -258,9 +295,11 @@ class Element[T](ElementDescriptor[T]):
         if self.name is None:
             raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
-            instance.__dict__[self.name] = self.adapter.from_wire(buffer)
+            instance.__dict__[self.name] = value = self.adapter.from_wire(buffer)
         except ValueError as exc:
             raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
+        if self.context_setter is not None:
+            self.context_setter(value)
 
     def to_wire(self, instance: Structure) -> bytes:
         return self.adapter.to_wire(self.__get__(instance))
@@ -269,8 +308,8 @@ class Element[T](ElementDescriptor[T]):
         return self.adapter.wire_length(self.__get__(instance))
 
 
-@dataclass(kw_only=True)
-class LinkedElementSpecification[T: DataWireProtocol, U]:
+@dataclass(kw_only=True, slots=True)
+class DependentElementSpec[T: DataWireProtocol, U]:
     type_map: Mapping[U, type[T]]
     fallback_type: type[T] | None = None
     length_type: type[UnsignedInteger]
@@ -301,19 +340,17 @@ class LinkedElementSpecification[T: DataWireProtocol, U]:
         return f'{self.__class__.__qualname__}({type_map=}, {fallback_type=}, {length_type=}, check_length={self.check_length!r})'
 
 
-class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
-    def __init__(self, *, linked_field: ElementDescriptor[U], specification: LinkedElementSpecification[T, U], default: T = NotImplemented) -> None:
-        self.name = None
-        self.linked_field = linked_field
-        self.specification = specification
-        self.default = default
-        self.type_map = specification.type_map
-        self.fallback_type = specification.fallback_type
-        self.length_type = specification.length_type
-        self.check_length = specification.check_length
+@dataclass(slots=True)
+class DependentValueContext[T, U]:
+    value: T
+    control_value: U
+    uses_fallback_type: bool
 
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}(linked_field={self.linked_field.name!s}, specification={self.specification!r}, default={self.default!r})'
+
+class DependentElement[T: DataWireProtocol, U](DependentElementDescriptor[T, U]):
+    @abstractmethod
+    def _get_control_value(self, instance: Structure, /) -> U:
+        ...
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
@@ -330,6 +367,28 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
     def __get__(self, instance: Structure | None, owner: type[Structure] | None = None) -> Self | T:
         if instance is None:
             return self
+        return self._get_value_context(instance).value
+
+    def __set__(self, instance: Structure, value: T) -> None:
+        if self.name is None:
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
+        control_value = self._get_control_value(instance)
+        element_type = self.type_map.get(control_value, None)
+        if element_type is not None:
+            uses_fallback_type = False
+        else:
+            if self.fallback_type is None:
+                raise ValueError(f'Cannot find associated type for dependent element {instance.__class__.__qualname__}.{self.name} with control value {control_value!r}')
+            element_type = self.fallback_type
+            uses_fallback_type = True
+        if not isinstance(value, element_type):
+            raise TypeError(f'The value for the {self.name!r} field should be of type {element_type.__qualname__!r}')
+        instance.__dict__[self.name] = DependentValueContext(value, control_value, uses_fallback_type)
+
+    def __delete__(self, instance: Structure) -> None:
+        raise AttributeError(f'Attribute {self.name!r} of {instance.__class__.__qualname__!r} object cannot be deleted')
+
+    def _get_value_context(self, instance: Structure, /) -> DependentValueContext[T, U]:
         if self.name is None:
             raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
         try:
@@ -337,33 +396,12 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
         except KeyError as exc:
             raise AttributeError(f'Attribute {self.name!r} of object {instance.__class__.__qualname__!r} is not set') from exc
 
-    def __set__(self, instance: Structure, value: T) -> None:
-        if self.name is None or self.linked_field.name is None:
-            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
-        try:
-            linked_field_value = instance.__dict__[self.linked_field.name]
-        except KeyError as exc:
-            raise AttributeError(f'Linked attribute {self.linked_field.name!r} of object {instance.__class__.__qualname__!r} is not set') from exc
-        element_type = self.type_map.get(linked_field_value, self.fallback_type)
-        if element_type is None:
-            raise ValueError(f'Cannot find associated type for linked field {self.linked_field.name!r} with value {linked_field_value!r}')
-        if not isinstance(value, element_type):
-            raise TypeError(f'The value for the {self.name!r} field should be of type {element_type.__qualname__!r}')
-        instance.__dict__[self.name] = value
-
-    def __delete__(self, instance: Structure) -> None:
-        raise AttributeError(f'Attribute {self.name!r} of {instance.__class__.__qualname__!r} object cannot be deleted')
-
     def from_wire(self, instance: Structure, buffer: WireData) -> None:
-        if self.name is None or self.linked_field.name is None:
+        if self.name is None:
             raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on it.')
 
-        try:
-            linked_field_value = instance.__dict__[self.linked_field.name]
-        except KeyError as exc:
-            raise AttributeError(f'Linked attribute {self.linked_field.name!r} of object {instance.__class__.__qualname__!r} is not set') from exc
-
-        element_type = self.type_map.get(linked_field_value, None)
+        control_value = self._get_control_value(instance)
+        element_type = self.type_map.get(control_value, None)
 
         if element_type is not None:
             if not isinstance(buffer, BytesIO):
@@ -380,36 +418,78 @@ class LinkedElement[T: DataWireProtocol, U](LinkedElementDescriptor[T, U]):
                     raise ValueError(f'Insufficient data in buffer to get the {instance.__class__.__qualname__}.{self.name} element')
             else:
                 element_data = buffer  # When check_length is False, it means the element knows its size and doesn't need the length to parse itself.
+            uses_fallback_type = False
         else:
             if self.fallback_type is None:
-                raise ValueError(f'Cannot find associated type for linked field {instance.__class__.__qualname__}.{self.linked_field.name} with value {linked_field_value!r}')
+                raise ValueError(f'Cannot find associated type for dependent element {instance.__class__.__qualname__}.{self.name} with control value {control_value!r}')
             element_type = self.fallback_type
             element_data = buffer  # The fallback type handles the length field internally
-
+            uses_fallback_type = True
         try:
-            instance.__dict__[self.name] = element_type.from_wire(element_data)
+            value = element_type.from_wire(element_data)
         except ValueError as exc:
             raise ValueError(f'Failed to read the {instance.__class__.__qualname__}.{self.name} element from wire: {exc}') from exc
+        instance.__dict__[self.name] = DependentValueContext(value, control_value, uses_fallback_type)
 
     def to_wire(self, instance: Structure) -> bytes:
-        # By using self.__get__(instance) we make sure that the element value was properly set, which also
-        # implies that self.name and self.linked_field.name are not None and the linked field is also set.
-        value = self.__get__(instance)
-        assert self.linked_field.name is not None  # noqa: S101 (used by type checkers)
-        linked_field_value = instance.__dict__[self.linked_field.name]
-        if linked_field_value in self.type_map:
-            return self.length_type(value.wire_length()).to_wire() + value.to_wire()
-        return value.to_wire()
+        context = self._get_value_context(instance)
+        if context.uses_fallback_type:
+            return context.value.to_wire()
+        return self.length_type(context.value.wire_length()).to_wire() + context.value.to_wire()
 
     def wire_length(self, instance: Structure) -> int:
-        # By using self.__get__(instance) we make sure that the element value was properly set, which also
-        # implies that self.name and self.linked_field.name are not None and the linked field is also set.
-        value = self.__get__(instance)
-        assert self.linked_field.name is not None  # noqa: S101 (used by type checkers)
-        linked_field_value = instance.__dict__[self.linked_field.name]
-        if linked_field_value in self.type_map:
-            return self.length_type._size_ + value.wire_length()
-        return value.wire_length()
+        context = self._get_value_context(instance)
+        if context.uses_fallback_type:
+            return context.value.wire_length()
+        return self.length_type._size_ + context.value.wire_length()
+
+
+class ContextVarDependentElement[T: DataWireProtocol, U](DependentElement[T, U]):
+    control_var: ContextVar[U]
+
+    def __init__(self, *, control_var: ContextVar[U], specification: DependentElementSpec[T, U], default: T = NotImplemented) -> None:
+        self.name = None
+        self.control_var = control_var
+        self.specification = specification
+        self.default = default
+        self.type_map = specification.type_map
+        self.fallback_type = specification.fallback_type
+        self.length_type = specification.length_type
+        self.check_length = specification.check_length
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(control_var={self.control_var.name!s}, specification={self.specification!r}, default={self.default!r})'
+
+    def _get_control_value(self, instance: Structure, /) -> U:
+        try:
+            return self.control_var.get()
+        except LookupError as exc:
+            raise ValueError(f'Control variable {instance.__class__.__qualname__}.{self.control_var.name} is not set') from exc
+
+
+class FieldDependentElement[T: DataWireProtocol, U](DependentElement[T, U]):
+    control_field: ElementDescriptor[U]
+
+    def __init__(self, *, control_field: ElementDescriptor[U], specification: DependentElementSpec[T, U], default: T = NotImplemented) -> None:
+        self.name = None
+        self.control_field = control_field
+        self.specification = specification
+        self.default = default
+        self.type_map = specification.type_map
+        self.fallback_type = specification.fallback_type
+        self.length_type = specification.length_type
+        self.check_length = specification.check_length
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(control_field={self.control_field.name!s}, specification={self.specification!r}, default={self.default!r})'
+
+    def _get_control_value(self, instance: Structure, /) -> U:
+        if self.control_field.name is None:
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on its control field.')
+        try:
+            return instance.__dict__[self.control_field.name]
+        except KeyError as exc:
+            raise ValueError(f'Control element {instance.__class__.__qualname__}.{self.control_field.name} is not set') from exc
 
 
 class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
@@ -471,6 +551,6 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
         return self.__get__(instance).wire_length()
 
 
-@dataclass_transform(kw_only_default=True, field_specifiers=(Element, LinkedElement, ListElement))
+@dataclass_transform(kw_only_default=True, field_specifiers=(Element, ContextVarDependentElement, FieldDependentElement, ListElement))
 class AnnotatedStructure(Structure):
     pass

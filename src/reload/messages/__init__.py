@@ -104,7 +104,7 @@ from .datamodel import (
     VariableLengthList,
     WireData,
 )
-from .elements import AnnotatedStructure, Element, LinkedElement, LinkedElementSpecification, ListElement, Structure
+from .elements import AnnotatedStructure, DependentElementSpec, Element, FieldDependentElement, ListElement, Structure
 
 __all__ = (  # noqa: RUF022
     # Generic elements
@@ -207,7 +207,7 @@ class IPAddressPort(AnnotatedStructure):
     # uint8       length     // length of addr_port (not exposed)
     # IPAddrPort  addr_port  // either IPv4AddrPort or IPv6AddrPort based on type
 
-    _addr_port_specification: ClassVar = LinkedElementSpecification[IPv4AddrPort | IPv6AddrPort, AddressType](
+    _addr_port_specification: ClassVar = DependentElementSpec[IPv4AddrPort | IPv6AddrPort, AddressType](
         type_map={
             AddressType.ipv4_address: IPv4AddrPort,
             AddressType.ipv6_address: IPv6AddrPort,
@@ -216,7 +216,7 @@ class IPAddressPort(AnnotatedStructure):
     )
 
     type: Element[AddressType] = Element(AddressType)
-    addr_port: LinkedElement[IPv4AddrPort | IPv6AddrPort, AddressType] = LinkedElement(linked_field=type, specification=_addr_port_specification)
+    addr_port: FieldDependentElement[IPv4AddrPort | IPv6AddrPort, AddressType] = FieldDependentElement(control_field=type, specification=_addr_port_specification)
 
     @classmethod
     def from_address(cls, host: str, port: int) -> Self:
@@ -234,7 +234,7 @@ class ICEExtension(AnnotatedStructure):
 
 
 class ICECandidate(AnnotatedStructure):
-    _related_address_specification: ClassVar = LinkedElementSpecification[IPAddressPort | Empty, CandidateType](
+    _related_address_specification: ClassVar = DependentElementSpec[IPAddressPort | Empty, CandidateType](
         type_map={
             CandidateType.host: Empty,
             CandidateType.srflx: IPAddressPort,
@@ -248,7 +248,7 @@ class ICECandidate(AnnotatedStructure):
     foundation: Element[str] = Element(str, adapter=String8Adapter)
     priority: Element[int] = Element(int, adapter=UInt32Adapter)
     type: Element[CandidateType] = Element(CandidateType)
-    related_address: LinkedElement[IPAddressPort | Empty, CandidateType] = LinkedElement(linked_field=type, specification=_related_address_specification)
+    related_address: FieldDependentElement[IPAddressPort | Empty, CandidateType] = FieldDependentElement(control_field=type, specification=_related_address_specification)
     extensions: ListElement[ICEExtension] = ListElement(ICEExtension, default=(), maxsize=2**16 - 1)
 
     @classmethod
@@ -307,7 +307,7 @@ class Destination(AnnotatedStructure):
 
     """
 
-    _data_specification: ClassVar = LinkedElementSpecification[NodeID | ResourceID | OpaqueID, DestinationType](
+    _data_specification: ClassVar = DependentElementSpec[NodeID | ResourceID | OpaqueID, DestinationType](
         type_map={
             DestinationType.node: NodeID,
             DestinationType.resource: ResourceID,
@@ -317,7 +317,7 @@ class Destination(AnnotatedStructure):
     )
 
     type: Element[DestinationType] = Element(DestinationType)
-    data: LinkedElement[NodeID | ResourceID | OpaqueID, DestinationType] = LinkedElement(linked_field=type, specification=_data_specification)
+    data: FieldDependentElement[NodeID | ResourceID | OpaqueID, DestinationType] = FieldDependentElement(control_field=type, specification=_data_specification)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.data.hex()}>'
@@ -353,7 +353,7 @@ class ForwardingOptionAdapter(CompositeAdapter[ForwardingOptionType | UInt8]):
 
 
 class ForwardingOption(AnnotatedStructure):
-    _option_specification: ClassVar = LinkedElementSpecification[Opaque16, ForwardingOptionType | UInt8](
+    _option_specification: ClassVar = DependentElementSpec[Opaque16, ForwardingOptionType | UInt8](
         type_map={
             # currently there are no forwarding options defined in the RFC
         },
@@ -363,7 +363,7 @@ class ForwardingOption(AnnotatedStructure):
 
     type: Element[ForwardingOptionType | UInt8] = Element(ForwardingOptionType | UInt8, adapter=ForwardingOptionAdapter)
     flags: Element[ForwardingFlags] = Element(ForwardingFlags)
-    option: LinkedElement[Opaque16, ForwardingOptionType | UInt8] = LinkedElement(linked_field=type, specification=_option_specification, default=Opaque16())
+    option: FieldDependentElement[Opaque16, ForwardingOptionType | UInt8] = FieldDependentElement(control_field=type, specification=_option_specification, default=Opaque16())
 
 
 class MessageExtensionAdapter(CompositeAdapter[MessageExtensionType | UInt16]):
@@ -371,7 +371,7 @@ class MessageExtensionAdapter(CompositeAdapter[MessageExtensionType | UInt16]):
 
 
 class MessageExtension(AnnotatedStructure):
-    _extension_specification: ClassVar = LinkedElementSpecification[Opaque32, MessageExtensionType | UInt16](
+    _extension_specification: ClassVar = DependentElementSpec[Opaque32, MessageExtensionType | UInt16](
         type_map={
             # currently there are no message extensions defined in the RFC
         },
@@ -381,7 +381,7 @@ class MessageExtension(AnnotatedStructure):
 
     type: Element[MessageExtensionType | UInt16] = Element(MessageExtensionType | UInt16, adapter=MessageExtensionAdapter)
     critical: Element[bool] = Element(bool)
-    extension: LinkedElement[Opaque32, MessageExtensionType | UInt16] = LinkedElement(linked_field=type, specification=_extension_specification, default=Opaque32())
+    extension: FieldDependentElement[Opaque32, MessageExtensionType | UInt16] = FieldDependentElement(control_field=type, specification=_extension_specification, default=Opaque32())
 
 
 class NodeNeighbors(AnnotatedStructure):
@@ -400,7 +400,7 @@ class ProbeInformationAdapter(CompositeAdapter[ProbeInformationType | UInt8]):
 
 
 class ProbeInformation(AnnotatedStructure):
-    _value_specification: ClassVar = LinkedElementSpecification[UInt32 | Opaque8, ProbeInformationType | UInt8](
+    _value_specification: ClassVar = DependentElementSpec[UInt32 | Opaque8, ProbeInformationType | UInt8](
         type_map={
             ProbeInformationType.responsible_set: UInt32,
             ProbeInformationType.num_resources: UInt32,
@@ -411,7 +411,7 @@ class ProbeInformation(AnnotatedStructure):
     )
 
     type: Element[ProbeInformationType | UInt8] = Element(ProbeInformationType | UInt8, adapter=ProbeInformationAdapter)
-    value: LinkedElement[UInt32 | Opaque8, ProbeInformationType | UInt8] = LinkedElement(linked_field=type, specification=_value_specification)
+    value: FieldDependentElement[UInt32 | Opaque8, ProbeInformationType | UInt8] = FieldDependentElement(control_field=type, specification=_value_specification)
 
 
 # Signature elements
@@ -436,7 +436,7 @@ class SignatureAndHashAlgorithm(AnnotatedStructure):
 
 
 class SignerIdentity(AnnotatedStructure):
-    _identity_specification: ClassVar = LinkedElementSpecification[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType](
+    _identity_specification: ClassVar = DependentElementSpec[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType](
         type_map={
             SignerIdentityType.cert_hash: CertificateHash,
             SignerIdentityType.cert_hash_node_id: CertificateHashNodeID,
@@ -446,7 +446,7 @@ class SignerIdentity(AnnotatedStructure):
     )
 
     type: Element[SignerIdentityType] = Element(SignerIdentityType)
-    identity: LinkedElement[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType] = LinkedElement(linked_field=type, specification=_identity_specification)
+    identity: FieldDependentElement[CertificateHash | CertificateHashNodeID | Empty, SignerIdentityType] = FieldDependentElement(control_field=type, specification=_identity_specification)
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.identity!r}>'
@@ -551,7 +551,7 @@ class LeaveResponse(Message, code=0x12):
 
 
 class UpdateRequest(Message, code=0x13):
-    _data_specification: ClassVar = LinkedElementSpecification[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType](
+    _data_specification: ClassVar = DependentElementSpec[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType](
         type_map={
             ChordUpdateType.peer_ready: Empty,
             ChordUpdateType.neighbors: NodeNeighbors,
@@ -561,7 +561,7 @@ class UpdateRequest(Message, code=0x13):
     )
     uptime: Element[int] = Element(int, adapter=UInt32Adapter)
     type: Element[ChordUpdateType] = Element(ChordUpdateType)
-    data: LinkedElement[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType] = LinkedElement(linked_field=type, specification=_data_specification)
+    data: FieldDependentElement[NodeNeighbors | NodeNeighborsFingers | Empty, ChordUpdateType] = FieldDependentElement(control_field=type, specification=_data_specification)
 
 
 class UpdateResponse(Message, code=0x14):
@@ -602,7 +602,7 @@ class AppAttachResponse(AppAttachRequest, code=0x1e):
 
 
 class ConfigUpdateRequest(Message, code=0x21):
-    _data_specification: ClassVar = LinkedElementSpecification[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8](
+    _data_specification: ClassVar = DependentElementSpec[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8](
         type_map={
             ConfigUpdateType.config: Opaque24,
             ConfigUpdateType.kind: KindDescriptionList,
@@ -612,7 +612,7 @@ class ConfigUpdateRequest(Message, code=0x21):
     )
 
     type: Element[ConfigUpdateType | UInt8] = Element(ConfigUpdateType | UInt8, adapter=ConfigUpdateAdapter)
-    data: LinkedElement[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8] = LinkedElement(linked_field=type, specification=_data_specification)
+    data: FieldDependentElement[KindDescriptionList | Opaque24 | Opaque32, ConfigUpdateType | UInt8] = FieldDependentElement(control_field=type, specification=_data_specification)
 
 
 class ConfigUpdateResponse(Message, code=0x22):
@@ -767,7 +767,7 @@ class SecurityBlock(AnnotatedStructure):
 
 
 class FramedMessage(AnnotatedStructure):
-    _frame_specification = LinkedElementSpecification[DataFrame | AckFrame, FramedMessageType](
+    _frame_specification = DependentElementSpec[DataFrame | AckFrame, FramedMessageType](
         type_map={
             FramedMessageType.data: DataFrame,
             FramedMessageType.ack: AckFrame,
@@ -776,7 +776,7 @@ class FramedMessage(AnnotatedStructure):
     )
 
     type: Element[FramedMessageType] = Element(FramedMessageType)
-    frame: LinkedElement[DataFrame | AckFrame, FramedMessageType] = LinkedElement(linked_field=type, specification=_frame_specification)
+    frame: FieldDependentElement[DataFrame | AckFrame, FramedMessageType] = FieldDependentElement(control_field=type, specification=_frame_specification)
 
 
 # Helpers
