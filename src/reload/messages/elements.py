@@ -31,7 +31,7 @@ class Structure:  # noqa: PLW1641
     _mandatory_arguments: ClassVar[frozenset[str]]
     _default_arguments: ClassVar[dict[str, object]]
 
-    _from_wire_running: ContextVar[bool] = ContextVar('_from_wire_running')
+    _from_wire_running_: ContextVar[bool] = ContextVar('_from_wire_running_')
 
     def __new__(cls, **kw: object) -> Self:
         if not cls._all_arguments.issuperset(kw):
@@ -70,7 +70,7 @@ class Structure:  # noqa: PLW1641
         return NotImplemented
 
     @classmethod
-    @run_in_context(sentinel=_from_wire_running)
+    @run_in_context(sentinel=_from_wire_running_)
     def from_wire(cls, buffer: WireData) -> Self:
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
