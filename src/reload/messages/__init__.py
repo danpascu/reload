@@ -48,6 +48,7 @@
 import hashlib
 import struct
 from collections.abc import MutableMapping, Sequence
+from contextvars import ContextVar
 from functools import lru_cache
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address, ip_address
@@ -57,6 +58,7 @@ from typing import ClassVar, Self
 from aioice.candidate import Candidate
 
 from reload.configuration import Configuration
+from reload.python.contextvars import run_in_context
 
 from .datamodel import (
     AddressType,
@@ -104,7 +106,9 @@ from .datamodel import (
     VariableLengthList,
     WireData,
 )
-from .elements import AnnotatedStructure, DependentElementSpec, Element, FieldDependentElement, ListElement, Structure
+from .elements import AnnotatedStructure, ContextVarDependentElement, DependentElementSpec, Element, FieldDependentElement, ListElement, Structure
+from .exceptions import UnknownKindError
+from .kinds import DataModel, Kind, KindID
 
 __all__ = (  # noqa: RUF022
     # Generic elements
@@ -134,6 +138,16 @@ __all__ = (  # noqa: RUF022
     'SignerIdentity',
     'Signature',
 
+    # Storage elements
+    'data_model',
+
+    'DataValue',
+    'ArrayEntry',
+    'DictionaryEntry',
+    'StoredData',
+    'StoreKindData',
+    'StoreKindResponse',
+
     # Framing elements
     'AckFrame',
     'DataFrame',
@@ -145,6 +159,8 @@ __all__ = (  # noqa: RUF022
     'ProbeResponse',
     'AttachRequest',
     'AttachResponse',
+    'StoreRequest',
+    'StoreResponse',
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
@@ -458,6 +474,108 @@ class Signature(AnnotatedStructure):
     value: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
 
 
+# Storage elements
+
+data_model: ContextVar[DataModel] = ContextVar('data_model')
+
+_unknown_kinds: ContextVar[list[KindID]] = ContextVar('_unknown_kinds')
+
+
+def data_model_context_setter(value: KindID) -> None:
+    try:
+        kind = Kind.lookup(value)
+    except KeyError as exc:
+        unknown_kinds = _unknown_kinds.get(None)
+        if unknown_kinds is None:
+            _unknown_kinds.set([value])
+        else:
+            unknown_kinds.append(value)
+        raise UnknownKindError(value) from exc
+    data_model.set(kind.data_model)
+
+
+class DataValue(AnnotatedStructure):
+    exists: Element[bool] = Element(bool)
+    value: Element[bytes] = Element(bytes, adapter=Opaque32Adapter)
+
+
+class ArrayEntry(AnnotatedStructure):
+    index: Element[int] = Element(int, adapter=UInt32Adapter)
+    value: Element[DataValue] = Element(DataValue)
+
+
+class DictionaryEntry(AnnotatedStructure):
+    key: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
+    value: Element[DataValue] = Element(DataValue)
+
+
+class StoredData(AnnotatedStructure):
+    _value_specification: ClassVar = DependentElementSpec[DataValue | ArrayEntry | DictionaryEntry, DataModel](
+        type_map={
+            DataModel.SINGLE: DataValue,
+            DataModel.ARRAY: ArrayEntry,
+            DataModel.DICTIONARY: DictionaryEntry,
+        },
+        length_type=NoLength,
+    )
+
+    # There is an unsigned 32-bit length field here in the structure that precedes the
+    # other fields and contains the size of the rest of the elements in the structure.
+    storage_time: Element[int] = Element(int, adapter=UInt64Adapter)
+    lifetime: Element[int] = Element(int, adapter=UInt32Adapter)
+    value: ContextVarDependentElement[DataValue | ArrayEntry | DictionaryEntry, DataModel] = ContextVarDependentElement(control_var=data_model, specification=_value_specification)
+    signature: Element[Signature] = Element(Signature)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        try:
+            UInt32Adapter.from_wire(buffer)
+        except ValueError as exc:
+            raise ValueError(f'Could not read the length of {cls.__qualname__} from wire: {exc}') from exc
+        return super().from_wire(buffer)
+
+    def to_wire(self) -> bytes:
+        return UInt32Adapter.to_wire(len(wire_data := super().to_wire())) + wire_data
+
+    def wire_length(self) -> int:
+        return super().wire_length() + UInt32._size_
+
+
+class StoreKindData(AnnotatedStructure):
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter, context_setter=data_model_context_setter)
+    generation_counter: Element[int] = Element(int, adapter=UInt64Adapter)
+    values: ListElement[StoredData] = ListElement(StoredData, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        instance = super(Structure, cls).__new__(cls)
+        try:
+            cls.kind_id.from_wire(instance, buffer)
+        except UnknownKindError:
+            cls.generation_counter.from_wire(instance, buffer)
+            list_length = UInt32Adapter.from_wire(buffer)
+            list_data = buffer.read(list_length)
+            if len(list_data) < list_length:
+                raise ValueError(f'Insufficient data in buffer to read {cls.__qualname__}.values') from None
+            instance.values = cls.values.list_type()  # Ignore all values since we do not understand the Kind and return an empty list instead
+        else:
+            cls.generation_counter.from_wire(instance, buffer)
+            cls.values.from_wire(instance, buffer)
+        return instance
+
+
+class StoreKindResponse(AnnotatedStructure):
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter)
+    generation_counter: Element[int] = Element(int, adapter=UInt64Adapter)
+    replicas: ListElement[NodeID] = ListElement(NodeID, default=(), maxsize=2**16 - 1)
+
+
 # Framing elements
 
 class AckFrame(AnnotatedStructure):
@@ -530,6 +648,25 @@ class AttachRequest(Message, code=0x03):
 # The response has the same structure as the request, but with a different code and a different role value
 class AttachResponse(AttachRequest, code=0x04):
     role: Element[str] = Element(str, default=ActiveRoleAdapter._static_value_, adapter=ActiveRoleAdapter)
+
+
+class StoreRequest(Message, code=0x07):
+    resource: Element[ResourceID] = Element(ResourceID)
+    replica_number: Element[int] = Element(int, adapter=UInt8Adapter)
+    kind_data: ListElement[StoreKindData] = ListElement(StoreKindData, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        instance = super().from_wire(buffer)
+        unknown_kinds = _unknown_kinds.get([])
+        if unknown_kinds:
+            raise UnknownKindError(*unknown_kinds)
+        return instance
+
+
+class StoreResponse(Message, code=0x08):
+    kind_responses: ListElement[StoreKindResponse] = ListElement(StoreKindResponse, default=(), maxsize=2**16 - 1)
 
 
 class JoinRequest(Message, code=0x0f):
