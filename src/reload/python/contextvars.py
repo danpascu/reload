@@ -2,11 +2,45 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from collections.abc import Callable
-from contextvars import ContextVar, copy_context
+from collections.abc import Callable, Mapping
+from contextvars import ContextVar, Token, copy_context
 from functools import wraps
+from typing import Self
 
-__all__ = 'run_in_context',  # noqa: COM818
+__all__ = 'ContextSpec', 'run_in_context', 'setup_context'
+
+
+class ContextSpec[T]:
+    context_vars: Mapping[ContextVar[T], T]
+    reset_tokens: Mapping[ContextVar[T], Token[T]]
+
+    def __init__(self, context_vars: Mapping[ContextVar[T], T]) -> None:
+        self.context_vars = context_vars
+        self.reset_tokens = {}
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__qualname__}: {', '.join(f'{var.name}={value!r}' for var, value in self.context_vars.items())}'
+
+    def __enter__(self) -> Self:
+        self.setup()
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.reset()
+
+    def setup(self) -> None:
+        reset_tokens = {var: var.set(value) for var, value in self.context_vars.items()}
+        if not self.reset_tokens:
+            self.reset_tokens = reset_tokens
+
+    def reset(self) -> None:
+        if self.reset_tokens:
+            for var, token in self.reset_tokens.items():
+                var.reset(token)
+            self.reset_tokens = {}
+
+
+setup_context = ContextSpec
 
 
 def run_in_context[T, **P](*, sentinel: ContextVar[bool]) -> Callable[[Callable[P, T]], Callable[P, T]]:

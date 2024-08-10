@@ -15,11 +15,11 @@ from operator import or_
 from types import NoneType, UnionType, new_class
 from typing import ClassVar, Self, cast, dataclass_transform, overload
 
-from reload.python.contextvars import run_in_context
+from reload.python.contextvars import ContextSpec, run_in_context
 
 from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
-__all__ = 'AnnotatedStructure', 'Structure', 'ContextSpec', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
+__all__ = 'AnnotatedStructure', 'Structure', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
 
 
 class Structure:  # noqa: PLW1641
@@ -86,21 +86,8 @@ class Structure:  # noqa: PLW1641
         return sum(field.wire_length(self) for field in self._fields_.values())
 
 
-# Classes to help create Structures that have ContextVar dependent elements, by executing
-# their constructor in a given context with given variables initialized to certain values.
-
-class ContextSpec[T]:
-    def __init__(self, context_vars: Mapping[ContextVar[T], T]) -> None:
-        self.context_vars = context_vars
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__qualname__}: {', '.join(f'{var.name}={value!r}' for var, value in self.context_vars.items())}'
-
-    def setup(self) -> None:
-        # This method should be called while running in the new context
-        for var, value in self.context_vars.items():
-            var.set(value)
-
+# Class to help instantiate Structures that have ContextVar dependent elements, by executing
+# their constructor in a context where specified variables are initialized to given values.
 
 class ContextStructure[T: Structure, U, **P]:
     def __init__(self, struct_type: Callable[P, T], context_spec: ContextSpec[U], /) -> None:
