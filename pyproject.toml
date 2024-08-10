@@ -63,13 +63,15 @@ extend-exclude = ["_darcs", ".idea", ".mypy_cache", ".pytest_cache"]
 docstring-code-format = true
 quote-style = "single"
 
+# A005 - shadowing python module names (unnecessarily restrictive)
 # CPY001 - missing copyright seems buggy (gives false positives)
-# DOC201 - require return specification in docstring (too restrictive)
+# DOC201 - require return specification in docstring (too restrictive - review)
+# DOC501 - require raise specification in docstring (too restrictive - review)
 # EM1XX, TRY003 - messages in raised exceptions (too restrictive)
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D1", "D202", "D203", "D212", "D400", "CPY001", "DOC201", "EM1", "N818", "SIM108", "TD003", "TRY003"]
+ignore = ["D1", "D202", "D203", "D212", "D400", "A005", "CPY001", "DOC201", "DOC501", "EM1", "N818", "SIM108", "TD003", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["INP001", "PLR2004", "PLR6301", "S101"]
