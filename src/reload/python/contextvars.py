@@ -29,15 +29,12 @@ class ContextSpec[T]:
         self.reset()
 
     def setup(self) -> None:
-        reset_tokens = {var: var.set(value) for var, value in self._context_vars.items()}
-        if not self._reset_tokens:
-            self._reset_tokens = reset_tokens
+        self._reset_tokens = {var: var.set(value) for var, value in self._context_vars.items()}
 
     def reset(self) -> None:
-        if self._reset_tokens:
-            for var, token in self._reset_tokens.items():
-                var.reset(token)
-            self._reset_tokens = {}
+        for var, token in self._reset_tokens.items():
+            var.reset(token)
+        self._reset_tokens = {}
 
 
 setup_context = ContextSpec
