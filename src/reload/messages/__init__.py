@@ -144,17 +144,24 @@ __all__ = (  # noqa: RUF022
     'DataValue',
     'ArrayEntry',
     'DictionaryEntry',
+    'DataValueMeta',
+    'ArrayEntryMeta',
+    'DictionaryEntryMeta',
 
     'ArrayRange',
     'ArrayRangeList',
     'DictionaryKeyList',
 
     'StoredData',
+    'StoredMetaData',
+
     'StoreKindData',
     'StoreKindResponse',
 
     'StoredDataSpecifier',
     'FetchKindResponse',
+
+    'StatKindResponse',
 
     # Framing elements
     'AckFrame',
@@ -181,6 +188,8 @@ __all__ = (  # noqa: RUF022
     'RouteQueryResponse',
     'PingRequest',
     'PingResponse',
+    'StatRequest',
+    'StatResponse',
     'AppAttachRequest',
     'AppAttachResponse',
     'ConfigUpdateRequest',
@@ -530,6 +539,23 @@ class DictionaryEntry(AnnotatedStructure):
     value: Element[DataValue] = Element(DataValue)
 
 
+class DataValueMeta(AnnotatedStructure):
+    exists: Element[bool] = Element(bool)
+    value_length: Element[int] = Element(int, adapter=UInt32Adapter)
+    hash_algorithm: Element[HashAlgorithm] = Element(HashAlgorithm)
+    hash_value: Element[bytes] = Element(bytes, adapter=Opaque8Adapter)
+
+
+class ArrayEntryMeta(AnnotatedStructure):
+    index: Element[int] = Element(int, adapter=UInt32Adapter)
+    value: Element[DataValueMeta] = Element(DataValueMeta)
+
+
+class DictionaryEntryMeta(AnnotatedStructure):
+    key: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
+    value: Element[DataValueMeta] = Element(DataValueMeta)
+
+
 class ArrayRange(AnnotatedStructure):
     # RFC 6940 refers to these as int32, which is wrong as they need to support the same range as ArrayEntry.index
     # Plus the text description of their meaning and usage does not indicate that negative values are possible.
@@ -561,6 +587,40 @@ class StoredData(AnnotatedStructure):
     lifetime: Element[int] = Element(int, adapter=UInt32Adapter)
     value: ContextVarDependentElement[DataValue | ArrayEntry | DictionaryEntry, DataModel] = ContextVarDependentElement(control_var=data_model, specification=_value_specification)
     signature: Element[Signature] = Element(Signature)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        try:
+            UInt32Adapter.from_wire(buffer)
+        except ValueError as exc:
+            raise ValueError(f'Could not read the length of {cls.__qualname__} from wire: {exc}') from exc
+        return super().from_wire(buffer)
+
+    def to_wire(self) -> bytes:
+        return UInt32Adapter.to_wire(len(wire_data := super().to_wire())) + wire_data
+
+    def wire_length(self) -> int:
+        return super().wire_length() + UInt32._size_
+
+
+class StoredMetaData(AnnotatedStructure):
+    _metadata_specification: ClassVar = DependentElementSpec[DataValueMeta | ArrayEntryMeta | DictionaryEntryMeta, DataModel](
+        type_map={
+            DataModel.SINGLE: DataValueMeta,
+            DataModel.ARRAY: ArrayEntryMeta,
+            DataModel.DICTIONARY: DictionaryEntryMeta,
+        },
+        length_type=NoLength,
+    )
+
+    # There is an unsigned 32-bit length field here in the structure that precedes the
+    # other fields and contains the size of the rest of the elements in the structure.
+    storage_time: Element[int] = Element(int, adapter=UInt64Adapter)
+    lifetime: Element[int] = Element(int, adapter=UInt32Adapter)
+    metadata: ContextVarDependentElement[DataValueMeta | ArrayEntryMeta | DictionaryEntryMeta, DataModel] = ContextVarDependentElement(control_var=data_model, specification=_metadata_specification)
 
     @classmethod
     @run_in_context(sentinel=Structure._from_wire_running_)
@@ -661,6 +721,32 @@ class FetchKindResponse(AnnotatedStructure):
     kind_id: Element[int] = Element(int, adapter=UInt32Adapter, context_setter=data_model_context_setter)
     generation: Element[int] = Element(int, adapter=UInt64Adapter)
     values: ListElement[StoredData] = ListElement(StoredData, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        instance = super(Structure, cls).__new__(cls)
+        try:
+            cls.kind_id.from_wire(instance, buffer)
+        except UnknownKindError:
+            cls.generation.from_wire(instance, buffer)
+            list_length = UInt32Adapter.from_wire(buffer)
+            list_data = buffer.read(list_length)
+            if len(list_data) < list_length:
+                raise ValueError(f'Insufficient data in buffer to read {cls.__qualname__}.values') from None
+            instance.values = cls.values.list_type()  # Ignore all values since we do not understand the Kind and return an empty list instead
+        else:
+            cls.generation.from_wire(instance, buffer)
+            cls.values.from_wire(instance, buffer)
+        return instance
+
+
+class StatKindResponse(AnnotatedStructure):
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter, context_setter=data_model_context_setter)
+    generation: Element[int] = Element(int, adapter=UInt64Adapter)
+    values: ListElement[StoredMetaData] = ListElement(StoredMetaData, default=(), maxsize=2**32 - 1)
 
     @classmethod
     @run_in_context(sentinel=Structure._from_wire_running_)
@@ -857,6 +943,34 @@ class PingRequest(Message, code=0x17):
 class PingResponse(Message, code=0x18):
     id: Element[int] = Element(int, adapter=UInt64Adapter)
     time: Element[int] = Element(int, adapter=UInt64Adapter)
+
+
+# Stat is like Fetch but for metadata
+class StatRequest(Message, code=0x19):
+    resource: Element[ResourceID] = Element(ResourceID)
+    specifiers: ListElement[StoredDataSpecifier] = ListElement(StoredDataSpecifier, default=(), maxsize=2**16 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        instance = super().from_wire(buffer)
+        unknown_kinds = _unknown_kinds.get([])
+        if unknown_kinds:
+            raise UnknownKindError(*unknown_kinds)
+        return instance
+
+
+class StatResponse(Message, code=0x1a):
+    kind_responses: ListElement[StatKindResponse] = ListElement(StatKindResponse, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        instance = super().from_wire(buffer)
+        unknown_kinds = _unknown_kinds.get([])
+        if unknown_kinds:
+            raise UnknownKindError(*unknown_kinds)
+        return instance
 
 
 class AppAttachRequest(Message, code=0x1d):
