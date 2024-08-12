@@ -163,11 +163,11 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
     return adapter
 
 
-type DataWireAdapterType[T] = type[DataWireAdapter[T]]
+type ContextQuery[C, T] = Callable[[C], T]
 
 type ContextSetter[T] = Callable[[T], None]
 
-type ContextQuery[C, T] = Callable[[C], T]
+type DataWireAdapterType[T] = type[DataWireAdapter[T]]
 
 
 # Field descriptor specifications
