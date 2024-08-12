@@ -19,7 +19,21 @@ from reload.python.contextvars import ContextSpec, run_in_context
 
 from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
-__all__ = 'AnnotatedStructure', 'Structure', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'ContextFieldDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
+__all__ = (  # noqa: RUF022
+    'Structure',
+    'AnnotatedStructure',
+    'ContextStructure',
+
+    'ContextQuery',
+    'ContextSetter',
+    'DependentElementSpec',
+
+    'Element',
+    'ContextVarDependentElement',
+    'ContextFieldDependentElement',
+    'FieldDependentElement',
+    'ListElement',
+)
 
 
 class Structure:  # noqa: PLW1641
