@@ -163,6 +163,8 @@ __all__ = (  # noqa: RUF022
 
     'StatKindResponse',
 
+    'FindKindData',
+
     # Framing elements
     'AckFrame',
     'DataFrame',
@@ -178,6 +180,8 @@ __all__ = (  # noqa: RUF022
     'StoreResponse',
     'FetchRequest',
     'FetchResponse',
+    'FindRequest',
+    'FindResponse',
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
@@ -769,6 +773,11 @@ class StatKindResponse(AnnotatedStructure):
         return instance
 
 
+class FindKindData(AnnotatedStructure):
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter)
+    closest: Element[ResourceID] = Element(ResourceID)
+
+
 # Framing elements
 
 class AckFrame(AnnotatedStructure):
@@ -887,6 +896,15 @@ class FetchResponse(Message, code=0x0a):
         if unknown_kinds:
             raise UnknownKindError(*unknown_kinds)
         return instance
+
+
+class FindRequest(Message, code=0x0d):
+    resource: Element[ResourceID] = Element(ResourceID)
+    kinds: ListElement[UInt32] = ListElement(UInt32, maxsize=2**8 - 1)
+
+
+class FindResponse(Message, code=0x0e):
+    results: ListElement[FindKindData] = ListElement(FindKindData, maxsize=2**16 - 1)
 
 
 class JoinRequest(Message, code=0x0f):
