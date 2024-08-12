@@ -19,7 +19,7 @@ from reload.python.contextvars import ContextSpec, run_in_context
 
 from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
 
-__all__ = 'AnnotatedStructure', 'Structure', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
+__all__ = 'AnnotatedStructure', 'Structure', 'ContextStructure', 'Element', 'DependentElementSpec', 'ContextVarDependentElement', 'ContextFieldDependentElement', 'FieldDependentElement', 'ListElement'  # noqa: RUF022
 
 
 class Structure:  # noqa: PLW1641
@@ -152,6 +152,8 @@ def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapt
 type DataWireAdapterType[T] = type[DataWireAdapter[T]]
 
 type ContextSetter[T] = Callable[[T], None]
+
+type ContextQuery[C, T] = Callable[[C], T]
 
 
 # Field descriptor specifications
@@ -452,6 +454,33 @@ class ContextVarDependentElement[T: DataWireProtocol, U](DependentElement[T, U])
             return self.control_var.get()
         except LookupError as exc:
             raise ValueError(f'Control variable {instance.__class__.__qualname__}.{self.control_var.name} is not set') from exc
+
+
+class ContextFieldDependentElement[T: DataWireProtocol, U, C](DependentElement[T, U]):
+    context_field: ElementDescriptor[C]  # The field that provides the context that determines the control value.
+    context_query: ContextQuery[C, U]    # A callable to translate from the context field to the control value.
+
+    def __init__(self, *, context_field: ElementDescriptor[C], context_query: ContextQuery[C, U], specification: DependentElementSpec[T, U], default: T = NotImplemented) -> None:
+        self.name = None
+        self.context_field = context_field
+        self.context_query = context_query
+        self.specification = specification
+        self.default = default
+        self.type_map = specification.type_map
+        self.fallback_type = specification.fallback_type
+        self.length_type = specification.length_type
+        self.check_length = specification.check_length
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(context_field={self.context_field.name}, context_query={self.context_query.__qualname__}, specification={self.specification!r}, default={self.default!r})'
+
+    def _get_control_value(self, instance: Structure, /) -> U:
+        if self.context_field.name is None:
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on its kind id field.')
+        try:
+            return self.context_query(instance.__dict__[self.context_field.name])
+        except KeyError as exc:
+            raise ValueError(f'The kind id element {instance.__class__.__qualname__}.{self.context_field.name} is not set') from exc
 
 
 class FieldDependentElement[T: DataWireProtocol, U](DependentElement[T, U]):
