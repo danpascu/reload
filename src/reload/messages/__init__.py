@@ -106,7 +106,7 @@ from .datamodel import (
     VariableLengthList,
     WireData,
 )
-from .elements import AnnotatedStructure, ContextVarDependentElement, DependentElementSpec, Element, FieldDependentElement, ListElement, Structure
+from .elements import AnnotatedStructure, ContextFieldDependentElement, ContextVarDependentElement, DependentElementSpec, Element, FieldDependentElement, ListElement, Structure
 from .exceptions import UnknownKindError
 from .kinds import DataModel, Kind, KindID
 
@@ -144,9 +144,17 @@ __all__ = (  # noqa: RUF022
     'DataValue',
     'ArrayEntry',
     'DictionaryEntry',
+
+    'ArrayRange',
+    'ArrayRangeList',
+    'DictionaryKeyList',
+
     'StoredData',
     'StoreKindData',
     'StoreKindResponse',
+
+    'StoredDataSpecifier',
+    'FetchKindResponse',
 
     # Framing elements
     'AckFrame',
@@ -161,6 +169,8 @@ __all__ = (  # noqa: RUF022
     'AttachResponse',
     'StoreRequest',
     'StoreResponse',
+    'FetchRequest',
+    'FetchResponse',
     'JoinRequest',
     'JoinResponse',
     'LeaveRequest',
@@ -481,17 +491,28 @@ data_model: ContextVar[DataModel] = ContextVar('data_model')
 _unknown_kinds: ContextVar[list[KindID]] = ContextVar('_unknown_kinds')
 
 
+def _mark_unknown_kind(kind_id: KindID) -> None:
+    unknown_kinds = _unknown_kinds.get(None)
+    if unknown_kinds is None:
+        _unknown_kinds.set([kind_id])
+    else:
+        unknown_kinds.append(kind_id)
+
+
 def data_model_context_setter(value: KindID) -> None:
     try:
         kind = Kind.lookup(value)
     except KeyError as exc:
-        unknown_kinds = _unknown_kinds.get(None)
-        if unknown_kinds is None:
-            _unknown_kinds.set([value])
-        else:
-            unknown_kinds.append(value)
+        _mark_unknown_kind(value)
         raise UnknownKindError(value) from exc
     data_model.set(kind.data_model)
+
+
+def kind_id_to_data_model(value: KindID) -> DataModel:
+    try:
+        return Kind.lookup(value).data_model
+    except KeyError as exc:
+        raise UnknownKindError(value) from exc
 
 
 class DataValue(AnnotatedStructure):
@@ -507,6 +528,21 @@ class ArrayEntry(AnnotatedStructure):
 class DictionaryEntry(AnnotatedStructure):
     key: Element[bytes] = Element(bytes, adapter=Opaque16Adapter)
     value: Element[DataValue] = Element(DataValue)
+
+
+class ArrayRange(AnnotatedStructure):
+    # RFC 6940 refers to these as int32, which is wrong as they need to support the same range as ArrayEntry.index
+    # Plus the text description of their meaning and usage does not indicate that negative values are possible.
+    first: Element[int] = Element(int, adapter=UInt32Adapter)
+    last: Element[int] = Element(int, adapter=UInt32Adapter)
+
+
+class ArrayRangeList(VariableLengthList[ArrayRange], maxsize=2**16 - 1):
+    pass
+
+
+class DictionaryKeyList(VariableLengthList[Opaque16], maxsize=2**16 - 1):
+    pass
 
 
 class StoredData(AnnotatedStructure):
@@ -574,6 +610,77 @@ class StoreKindResponse(AnnotatedStructure):
     kind_id: Element[int] = Element(int, adapter=UInt32Adapter)
     generation_counter: Element[int] = Element(int, adapter=UInt64Adapter)
     replicas: ListElement[NodeID] = ListElement(NodeID, default=(), maxsize=2**16 - 1)
+
+
+class StoredDataSpecifier(AnnotatedStructure):
+    _specifier_specification: ClassVar = DependentElementSpec[Empty | ArrayRangeList | DictionaryKeyList, DataModel](
+        type_map={
+            DataModel.SINGLE: Empty,
+            DataModel.ARRAY: ArrayRangeList,
+            DataModel.DICTIONARY: DictionaryKeyList,
+        },
+        length_type=UInt16,
+    )
+
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter)
+    generation: Element[int] = Element(int, default=0, adapter=UInt64Adapter)
+    specifier: ContextFieldDependentElement[Empty | ArrayRangeList | DictionaryKeyList, DataModel, KindID] = ContextFieldDependentElement(context_field=kind_id,
+                                                                                                                                          context_query=kind_id_to_data_model,
+                                                                                                                                          specification=_specifier_specification)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        instance = super(Structure, cls).__new__(cls)
+        cls.kind_id.from_wire(instance, buffer)
+        cls.generation.from_wire(instance, buffer)
+        kind_id = instance.kind_id
+        try:
+            Kind.lookup(kind_id)
+        except KeyError:
+            # Unknown kind. Add it to _unknown_kinds and skip over the rest of the structure in the buffer.
+            # Build a dummy instance with specifier set to Empty(), which will never be used as the container
+            # of this instance should notice that _unknown_kinds is not empty and raise UnknownKindError.
+            # The dummy instance is needed because we need a list with all the unknown kinds, so parsing
+            # cannot fail until all the elements have been parsed.
+            _mark_unknown_kind(kind_id)
+            assert cls.specifier.name is not None  # noqa: S101 (used by type checkers)
+            length = cls.specifier.length_type.from_wire(buffer)
+            specifier_data = buffer.read(length)
+            if len(specifier_data) < length:
+                raise ValueError(f'Insufficient data in buffer to read {cls.__qualname__}.specifier') from None
+            instance.__dict__[cls.specifier.name] = Empty()
+        else:
+            cls.specifier.from_wire(instance, buffer)
+        return instance
+
+
+class FetchKindResponse(AnnotatedStructure):
+    kind_id: Element[int] = Element(int, adapter=UInt32Adapter, context_setter=data_model_context_setter)
+    generation: Element[int] = Element(int, adapter=UInt64Adapter)
+    values: ListElement[StoredData] = ListElement(StoredData, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        if not isinstance(buffer, BytesIO):
+            buffer = BytesIO(buffer)
+        instance = super(Structure, cls).__new__(cls)
+        try:
+            cls.kind_id.from_wire(instance, buffer)
+        except UnknownKindError:
+            cls.generation.from_wire(instance, buffer)
+            list_length = UInt32Adapter.from_wire(buffer)
+            list_data = buffer.read(list_length)
+            if len(list_data) < list_length:
+                raise ValueError(f'Insufficient data in buffer to read {cls.__qualname__}.values') from None
+            instance.values = cls.values.list_type()  # Ignore all values since we do not understand the Kind and return an empty list instead
+        else:
+            cls.generation.from_wire(instance, buffer)
+            cls.values.from_wire(instance, buffer)
+        return instance
 
 
 # Framing elements
@@ -667,6 +774,33 @@ class StoreRequest(Message, code=0x07):
 
 class StoreResponse(Message, code=0x08):
     kind_responses: ListElement[StoreKindResponse] = ListElement(StoreKindResponse, default=(), maxsize=2**16 - 1)
+
+
+class FetchRequest(Message, code=0x09):
+    resource: Element[ResourceID] = Element(ResourceID)
+    specifiers: ListElement[StoredDataSpecifier] = ListElement(StoredDataSpecifier, default=(), maxsize=2**16 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        instance = super().from_wire(buffer)
+        unknown_kinds = _unknown_kinds.get([])
+        if unknown_kinds:
+            raise UnknownKindError(*unknown_kinds)
+        return instance
+
+
+class FetchResponse(Message, code=0x0a):
+    kind_responses: ListElement[FetchKindResponse] = ListElement(FetchKindResponse, default=(), maxsize=2**32 - 1)
+
+    @classmethod
+    @run_in_context(sentinel=Structure._from_wire_running_)
+    def from_wire(cls, buffer: WireData) -> Self:
+        instance = super().from_wire(buffer)
+        unknown_kinds = _unknown_kinds.get([])
+        if unknown_kinds:
+            raise UnknownKindError(*unknown_kinds)
+        return instance
 
 
 class JoinRequest(Message, code=0x0f):
