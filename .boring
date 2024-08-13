@@ -7,18 +7,20 @@
 (^|/)\.DS_Store$
 (^|/)Thumbs\.db$
 (^|/)core(\.[0-9]+)?$
-(^|/).*\.egg-info($|/)
-(^|/)\.coverage($|/)
+
 (^|/)\.mypy_cache($|/)
 (^|/)\.pytest_cache($|/)
 (^|/)\.ruff_cache($|/)
 (^|/)\.venv($|/)
-(^|/)__pycache__($|/)
-\.(pyc|pyo|o|so|orig|rej|prof|bak|BAK|tmp|wpu)$
-
 (^|/)\.idea($|/)
-(^|/)\.komodotools($|/)
-(^|/)_darcs($|/)
+
+(^|/)\.coverage($|/)
+(^|/)htmlcov($|/)
+(^|/)coverage\.(json|lcov|xml)$
+
+(^|/)__pycache__($|/)
+\.egg-info($|/)
+\.(pyc|pyo|o|so|orig|rej|prof|bak|BAK|tmp)$
 
 ^MANIFEST$
 ^build($|/)
