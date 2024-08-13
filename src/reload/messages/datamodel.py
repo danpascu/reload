@@ -242,11 +242,13 @@ class IntegerAdapter:
     _abstract_: ClassVar[bool] = True
     _bits_: ClassVar[int] = NotImplemented
     _size_: ClassVar[int] = NotImplemented
+    _mean_: ClassVar[int] = NotImplemented
 
     def __init_subclass__(cls, *, bits: int = NotImplemented, **kw: object) -> None:
         if bits is not NotImplemented:
             cls._bits_ = bits
             cls._size_ = bits // 8
+            cls._mean_ = 1 << (bits - 1)  # The midpoint of the values representable with bits
             cls._abstract_ = False
         super().__init_subclass__(**kw)
 
@@ -270,7 +272,8 @@ class IntegerAdapter:
 
     @classmethod
     def validate(cls, value: int, /) -> int:
-        if value.bit_length() > cls._bits_:
+        shifted_value = value + cls._mean_
+        if shifted_value < 0 or shifted_value.bit_length() > cls._bits_:
             raise ValueError(f'Value is out of range for {cls._bits_}-bits integer: {value!r}')
         return value
 
@@ -679,11 +682,13 @@ type ConvertibleToInt = str | Buffer | SupportsInt | SupportsIndex
 class Integer(int):
     _bits_: ClassVar[int] = NotImplemented
     _size_: ClassVar[int] = NotImplemented
+    _mean_: ClassVar[int] = NotImplemented
 
     def __init_subclass__(cls, *, bits: int = NotImplemented, **kw: object) -> None:
         if bits is not NotImplemented:
             cls._bits_ = bits
             cls._size_ = bits // 8
+            cls._mean_ = 1 << (bits - 1)  # The midpoint of the values representable with bits
         super().__init_subclass__(**kw)
 
     @overload
@@ -696,7 +701,8 @@ class Integer(int):
         if cls._bits_ is NotImplemented:
             raise TypeError(f'Cannot instantiate abstract integer type {cls.__qualname__!r} that does not define its bit length')
         value = super().__new__(cls, *args, **kw)
-        if value.bit_length() > cls._bits_:
+        shifted_value = value + cls._mean_
+        if shifted_value < 0 or shifted_value.bit_length() > cls._bits_:
             raise ValueError(f'Value is out of range for {cls._bits_}-bits integer: {value!r}')
         return value
 
