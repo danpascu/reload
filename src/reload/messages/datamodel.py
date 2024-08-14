@@ -1152,7 +1152,7 @@ class Opaque(bytes):
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
         if cls._sizelen_ is NotImplemented:
-            raise TypeError(f'Cannot instantiate variable length bytes type {cls.__qualname__!r} that does not define its max size')
+            raise TypeError(f'Cannot instantiate abstract variable length bytes type {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         length_data = buffer.read(cls._sizelen_)
@@ -1298,7 +1298,7 @@ class VariableLengthList[T: DataWireProtocol](List[T]):
     @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
         if cls._sizelen_ is NotImplemented:
-            raise TypeError(f'Cannot instantiate variable length list {cls.__qualname__!r} that does not define its max size')
+            raise TypeError(f'Cannot instantiate abstract variable length list {cls.__qualname__!r} that does not define its max size')
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         size_data = buffer.read(cls._sizelen_)
