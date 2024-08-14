@@ -1243,8 +1243,6 @@ class List[T: DataWireProtocol](list[T]):
             cls.__repr__ = list.__repr__  # type: ignore[method-assign]
         for base in getattr(cls, '__orig_bases__', ()):
             if isinstance(base, GenericAlias) and issubclass(base.__origin__, List):
-                if len(base.__args__) != 1:
-                    raise TypeError(f'The {cls.__qualname__!r} type can only be parameterized with a single base type or a type variable')
                 match base.__args__[0]:
                     case TypeVar():
                         pass  # new type is still generic
