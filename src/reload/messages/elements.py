@@ -352,8 +352,7 @@ class DependentValueContext[T, U]:
 
 class DependentElement[T: DataWireProtocol, U](DependentElementDescriptor[T, U]):
     @abstractmethod
-    def _get_control_value(self, instance: Structure, /) -> U:
-        ...
+    def _get_control_value(self, instance: Structure, /) -> U: ...
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
