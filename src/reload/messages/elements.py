@@ -462,11 +462,11 @@ class ContextVarDependentElement[T: DataWireProtocol, U](DependentElement[T, U])
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}(control_var={self.control_var.name!s}, specification={self.specification!r}, default={self.default!r})'
 
-    def _get_control_value(self, instance: Structure, /) -> U:
+    def _get_control_value(self, _: Structure, /) -> U:
         try:
             return self.control_var.get()
         except LookupError as exc:
-            raise ValueError(f'Control variable {instance.__class__.__qualname__}.{self.control_var.name} is not set') from exc
+            raise ValueError(f'Control context variable {self.control_var.name!r} is not set') from exc
 
 
 class ContextFieldDependentElement[T: DataWireProtocol, U, C](DependentElement[T, U]):
