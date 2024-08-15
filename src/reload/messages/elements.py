@@ -489,11 +489,11 @@ class ContextFieldDependentElement[T: DataWireProtocol, U, C](DependentElement[T
 
     def _get_control_value(self, instance: Structure, /) -> U:
         if self.context_field.name is None:
-            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on its kind id field.')
+            raise TypeError(f'Cannot use {self.__class__.__qualname__!r} instance without calling __set_name__ on its context field.')
         try:
             return self.context_query(instance.__dict__[self.context_field.name])
         except KeyError as exc:
-            raise ValueError(f'The kind id element {instance.__class__.__qualname__}.{self.context_field.name} is not set') from exc
+            raise ValueError(f'The context providing element {instance.__class__.__qualname__}.{self.context_field.name} is not set') from exc
 
 
 class FieldDependentElement[T: DataWireProtocol, U](DependentElement[T, U]):
