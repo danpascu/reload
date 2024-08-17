@@ -688,9 +688,9 @@ class StoredDataSpecifier(AnnotatedStructure):
 
     kind_id: Element[int] = Element(int, adapter=UInt32Adapter)
     generation: Element[int] = Element(int, default=0, adapter=UInt64Adapter)
-    specifier: ContextFieldDependentElement[Empty | ArrayRangeList | DictionaryKeyList, DataModel, KindID] = ContextFieldDependentElement(context_field=kind_id,
-                                                                                                                                          context_query=kind_id_to_data_model,
-                                                                                                                                          specification=_specifier_specification)
+    specifier: ContextFieldDependentElement[Empty | ArrayRangeList | DictionaryKeyList, DataModel, KindID] = ContextFieldDependentElement(
+        context_field=kind_id, context_query=kind_id_to_data_model, specification=_specifier_specification  # noqa: COM812
+    )
 
     @classmethod
     @run_in_context(sentinel=Structure._from_wire_running_)
