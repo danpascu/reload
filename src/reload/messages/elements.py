@@ -582,4 +582,20 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
 
 @dataclass_transform(kw_only_default=True, field_specifiers=(Element, ContextVarDependentElement, ContextFieldDependentElement, FieldDependentElement, ListElement))
 class AnnotatedStructure(Structure):
-    pass
+    """
+    A static type checker friendly variant of Structure.
+
+    Subclassing AnnotatedStructure allows static type checkers to identify the
+    names and types of the arguments used to create instances, at the cost of
+    being more verbose and redundant with the element definitions.
+
+    The element definition needs to include both an annotation and the descriptor
+    definition for the element:
+
+      version: Element[int] = Element(int, adapter=UInt32Adapter)
+      nodes: ListElement[NodeID] = ListElement(NodeID, default=())
+
+    With these, static type checkers will be able to infer the __init__ signature
+    and identify problems with the arguments during instance creation, and it can
+    also help with getting code completion suggestions from language servers.
+    """
