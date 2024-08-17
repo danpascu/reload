@@ -1124,10 +1124,7 @@ class ForwardingHeader(AnnotatedStructure):
         preamble = buffer.read(cls._preamble_.size)
         if len(preamble) != cls._preamble_.size:
             raise ValueError(f'Insufficient data in buffer to extract {cls.__qualname__!r}')
-        try:
-            relo_token, *preamble_values, via_length, destination_length, options_length = cls._preamble_.unpack(preamble)
-        except struct.error as exc:
-            raise ValueError(f'Cannot extract {cls.__qualname__!r} from buffer: {exc!s}') from exc
+        relo_token, *preamble_values, via_length, destination_length, options_length = cls._preamble_.unpack(preamble)
         if relo_token != RELO_TOKEN:
             raise ValueError(f'The buffer does not contain valid {cls.__qualname__!r} data')
         via_data = buffer.read(via_length)
