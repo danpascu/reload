@@ -366,6 +366,18 @@ class Destination(AnnotatedStructure):
         return self.type is DestinationType.opaque_id_type and len(self.data) == 2 and self.data[0] & 0x80 != 0  # noqa: PLR2004
 
     @classmethod
+    def for_data(cls, data: NodeID | ResourceID | OpaqueID | str | bytes | bytearray | memoryview, /) -> Self:
+        match data:
+            case NodeID():
+                return cls(type=DestinationType.node, data=data)
+            case ResourceID():
+                return cls(type=DestinationType.resource, data=data)
+            case OpaqueID():
+                return cls(type=DestinationType.opaque_id_type, data=data)
+            case _:
+                return cls(type=DestinationType.resource, data=ResourceID.for_resource(data))
+
+    @classmethod
     def from_wire(cls, buffer: WireData) -> Self:
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
