@@ -362,7 +362,7 @@ class Destination(AnnotatedStructure):
         return f'<{self.__class__.__qualname__}: {self.type.name} {self.data.hex()}>'
 
     @property
-    def is_opaque_id(self) -> bool:
+    def is_compact_id(self) -> bool:
         return self.type is DestinationType.opaque_id_type and len(self.data) == 2 and self.data[0] & 0x80 != 0  # noqa: PLR2004
 
     @classmethod
@@ -377,12 +377,12 @@ class Destination(AnnotatedStructure):
         return super().from_wire(buffer)
 
     def to_wire(self) -> bytes:
-        if self.is_opaque_id:
+        if self.is_compact_id:
             return bytes(self.data)
         return super().to_wire()
 
     def wire_length(self) -> int:
-        if self.is_opaque_id:
+        if self.is_compact_id:
             return 2
         return super().wire_length()
 
