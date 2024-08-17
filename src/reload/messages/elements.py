@@ -580,6 +580,6 @@ class ListElement[T: DataWireProtocol](ListElementDescriptor[T]):
         return self.__get__(instance).wire_length()
 
 
-@dataclass_transform(kw_only_default=True, field_specifiers=(Element, ContextVarDependentElement, FieldDependentElement, ListElement))
+@dataclass_transform(kw_only_default=True, field_specifiers=(Element, ContextVarDependentElement, ContextFieldDependentElement, FieldDependentElement, ListElement))
 class AnnotatedStructure(Structure):
     pass
