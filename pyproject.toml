@@ -32,6 +32,12 @@ dependencies = ["aioice", "lxml", "pyopenssl"]
 test = ["pytest >=6.0", "pytest-cov", "trustme"]
 devel = ["reload[test]", "flit", "ruff", "mypy@git+https://github.com/python/mypy", "lxml-stubs", "types-pyOpenSSL"]
 
+[tool.coverage.report]
+exclude_also = [
+    "assert_never\\(\\w+\\)",
+    "case [^:]+:\\n\\s+assert_never\\(\\w+\\)",
+]
+
 [tool.flit.sdist]
 include = ["docs/", "tests/"]
 exclude = ["tests/sandbox/", "tests/__pycache__/"]
@@ -74,7 +80,7 @@ select = ["ALL"]
 ignore = ["D1", "D202", "D203", "D212", "D400", "A005", "CPY001", "DOC201", "DOC501", "EM1", "N818", "SIM108", "TD003", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["INP001", "PLR2004", "PLR6301", "S101"]
+"tests/**" = ["INP001", "PLC1901", "PLC2701", "PLR2004", "PLR6301", "S101", "S105", "S106"]
 
 [tool.ruff.lint.flake8-quotes]
 inline-quotes = "single"
