@@ -1,4 +1,6 @@
 
+### The RELOAD protocol
+
 RELOAD stands for REsource LOcation And Discovery and is a peer-to-peer (P2P)
 signaling protocol that provides its clients with an abstract storage and
 messaging service between a set of cooperating peers that form an overlay
@@ -19,7 +21,19 @@ RELOAD is described in RFC 6940. For more details see docs/overview
 This project also includes a standalone DTLS-over-ICE implementation.
 
 
-This project was funded through the NGI0 Discovery Fund, a fund established
-by NLnet with financial support from the European Commission's Next
-Generation Internet programme, under the aegis of DG Communications
-Networks, Content and Technology under grant agreement No 825322.
+### Funding
+
+This project has received funding through [NGI0 Discovery] and [NGI0 Entrust],
+both funds established by [NLnet] with financial support from the European
+Commission's [Next Generation Internet] program under grant agreements
+No 825322 and 101069594.
+
+Learn more at the NLnet project pages for [Blink RELOAD] and [SIP RELOAD].
+
+[NLnet]: https://nlnet.nl
+[Next Generation Internet]: https://ngi.eu
+[NGI0 Discovery]: https://nlnet.nl/discovery
+[NGI0 Entrust]: https://nlnet.nl/entrust
+[Blink RELOAD]: https://nlnet.nl/project/BlinkRELOAD
+[SIP RELOAD]: https://nlnet.nl/project/SIP-RELOAD
+
