@@ -28,7 +28,7 @@ both funds established by [NLnet] with financial support from the European
 Commission's [Next Generation Internet] program under grant agreements
 No 825322 and 101069594.
 
-Learn more at the NLnet project pages for [Blink RELOAD] and [SIP RELOAD].
+Learn more at the [NLnet] project pages for [Blink RELOAD] and [SIP RELOAD].
 
 [NLnet]: https://nlnet.nl
 [Next Generation Internet]: https://ngi.eu
