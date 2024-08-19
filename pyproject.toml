@@ -4,7 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "reload"
-readme  = "README.rst"
+readme  = "README.md"
 authors = [{name = "Dan Pascu", email = "dan@aethereal.link"}]
 license = {file = "LICENSE"}
 classifiers = [
