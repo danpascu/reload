@@ -53,7 +53,7 @@ from functools import lru_cache
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from secrets import randbelow
-from typing import ClassVar, Self, assert_never
+from typing import ClassVar, Self
 
 from aioice.candidate import Candidate
 
@@ -313,8 +313,6 @@ class ICECandidate(AnnotatedStructure):
             case Empty():
                 related_address = None
                 related_port = None
-            case other:
-                assert_never(other)
         return Candidate(
             foundation=self.foundation,
             component=1,
