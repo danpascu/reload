@@ -3,14 +3,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # The Kinds are defined by Usages, however creating and parsing messages needs
-# access to both the Kind information (Kind id, data model, ...) as well as
-# the Kind meta-information (the Kind structure and data types involved) in
-# order to be able to automatically create and parse messages that have a
-# dynamic structure based on the Kind's id. As a result the Kind structure
-# as well as the types used by Kinds will be defined here. While individual
-# Kinds can be defined elsewhere as they automatically register and become
-# available here, in order to keep messages self contained and testable it
-# is recommended to define all the Kinds here.
+# access to both the Kind information (Kind id, data model, ...) ans the Kind
+# meta-information (the Kind structure and data types involved) in order to
+# be able to automatically create and parse messages with a dynamic structure
+# based on the Kind's id. As a result, the Kind structure and the types used
+# by Kinds will be defined here. While Kinds can be defined elsewhere as they
+# automatically register and become available here, in order to keep messages
+# self-contained and testable it is recommended to define all the Kinds here.
 
 
 from collections.abc import MutableMapping
