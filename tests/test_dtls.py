@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
-import trustme
 import unittest
-
-from OpenSSL.SSL import Context
 from functools import cached_property
 from typing import cast
+
+import trustme
+from OpenSSL.SSL import Context
 
 from reload import link
 

@@ -9,6 +9,7 @@ from ipaddress import IPv4Address, IPv6Address
 from typing import ClassVar, Self
 
 import pytest
+
 from reload.configuration import Configuration
 from reload.messages import (
     AckFrame,

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import pytest
+
 from reload.configuration import Configuration, OverlayConfiguration, SelfSignedPermitted
 from reload.configuration.xml import (
     Attribute,
