@@ -78,7 +78,3 @@ class TestDTLS(unittest.IsolatedAsyncioTestCase):
         client_task = asyncio.create_task(self._disconnect_peer(self._client_conn))
         server_task = asyncio.create_task(self._disconnect_peer(self._server_conn))
         await asyncio.gather(client_task, server_task)
-
-
-if __name__ == '__main__':
-    unittest.main()
