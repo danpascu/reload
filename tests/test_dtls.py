@@ -68,8 +68,8 @@ class TestDTLS(unittest.IsolatedAsyncioTestCase):
     async def test_dtls(self) -> None:
         client_message = await self._server_conn.receive()
         server_message = await self._client_conn.receive()
-        self.assertEqual(client_message, b'client message')
-        self.assertEqual(server_message, b'server message')
+        assert client_message == b'client message'
+        assert server_message == b'server message'
 
     def tearDown(self) -> None:
         pass
