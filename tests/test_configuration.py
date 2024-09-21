@@ -189,7 +189,7 @@ class TestXMLFramework:
         assert root.point is None
 
         root.signatures.add(Signature(value=b'extra'))
-        assert len(root.signatures) == 2  # noqa: PLR2004
+        assert len(root.signatures) == 2
 
         root.signatures.remove(root.signatures[0])
         assert len(root.signatures) == 1
