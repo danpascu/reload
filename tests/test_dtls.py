@@ -4,6 +4,7 @@
 
 import asyncio
 import unittest
+from functools import cached_property
 from typing import cast
 
 import trustme
@@ -13,22 +14,23 @@ from reload import link
 
 
 class _TestIdentity:
-    _key_: int
-
     def __init__(self, authority: trustme.CA) -> None:
         self.authority = authority
         self.certificate = authority.issue_cert('test.com')
-        self._key_ = hash(self.certificate.private_key_and_cert_chain_pem.bytes())
+
+    @cached_property
+    def _key(self) -> int:
+        return hash(self.certificate.private_key_and_cert_chain_pem.bytes())
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
     def __hash__(self) -> int:
-        return self._key_
+        return self._key
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, _TestIdentity):
-            return self._key_ == other._key_
+            return self._key == other._key
         return NotImplemented
 
     def configure(self, context: Context) -> None:
