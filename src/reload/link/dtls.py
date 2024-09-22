@@ -250,8 +250,6 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     max_retransmissions: int = 2
 
     def __init__(self, purpose: Purpose, identity: NodeIdentity, *, mtu: int = OPTIMAL_MTU) -> None:
-        if type(purpose) is not Purpose:
-            raise TypeError('purpose needs to be of type Purpose')
         ice_controlling = purpose is Purpose.AttachRequest
         self.identity = identity
         self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
