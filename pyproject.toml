@@ -48,7 +48,6 @@ testpaths = ["tests"]
 norecursedirs = ["sandbox"]
 
 [tool.mypy]
-enable_incomplete_feature = "NewGenericSyntax"
 disable_bytearray_promotion = true
 disable_memoryview_promotion = true
 check_untyped_defs = true
