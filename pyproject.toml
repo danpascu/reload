@@ -73,10 +73,11 @@ quote-style = "single"
 # DOC201 - require return specification in docstring (too restrictive - review)
 # DOC501 - require raise specification in docstring (too restrictive - review)
 # EM1XX, TRY003 - messages in raised exceptions (too restrictive)
+# FURB189 - don't subclass str/list/dict (too restrictive)
 
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["D1", "D202", "D203", "D212", "D400", "A005", "CPY001", "DOC201", "DOC501", "EM1", "N818", "SIM108", "TD003", "TRY003"]
+ignore = ["D1", "D202", "D203", "D212", "D400", "A005", "CPY001", "DOC201", "DOC501", "EM1", "FURB189", "N818", "SIM108", "TD003", "TRY003"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["INP001", "PLC1901", "PLC2701", "PLR2004", "PLR6301", "S101", "S105", "S106"]
