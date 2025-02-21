@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, ClassVar, Self, cast, overload
 
+from aioice.candidate import Candidate
 from aioice.ice import Connection as ICEConnection
 from cryptography.hazmat.bindings.openssl.binding import Binding
 from OpenSSL import SSL
@@ -236,7 +237,7 @@ class Purpose(enum.Enum):
 class ICEPeer:
     username: str
     password: str
-    candidates: list
+    candidates: list[Candidate]
 
 
 class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
