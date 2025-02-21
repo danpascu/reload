@@ -5,7 +5,6 @@
 import asyncio
 import unittest
 from functools import cached_property
-from typing import cast
 
 import trustme
 from OpenSSL.SSL import Context
@@ -43,8 +42,8 @@ class TestDTLS(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         link.DTLSEndpoint.stun_server = None
         self._authority = trustme.CA()
-        self._client_identity = cast(link.NodeIdentity, _TestIdentity(self._authority))
-        self._server_identity = cast(link.NodeIdentity, _TestIdentity(self._authority))
+        self._client_identity = _TestIdentity(self._authority)
+        self._server_identity = _TestIdentity(self._authority)
         self._client_conn = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self._client_identity)
         self._server_conn = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self._server_identity)
 

@@ -9,7 +9,7 @@ import struct
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, ClassVar, Self, cast, overload
+from typing import Any, ClassVar, Protocol, Self, cast, overload
 
 from aioice.candidate import Candidate
 from aioice.ice import Connection as ICEConnection
@@ -17,8 +17,6 @@ from cryptography.hazmat.bindings.openssl.binding import Binding
 from OpenSSL import SSL
 
 from reload import aio
-
-from .common import NodeIdentity
 
 __all__ = 'DTLSEndpoint', 'Purpose', 'ICEPeer', 'BadRecord'  # noqa: RUF022
 
@@ -240,6 +238,12 @@ class ICEPeer:
     candidates: list[Candidate]
 
 
+class X509IdentityProvider(Protocol):
+    def configure(self, context: SSL.Context) -> None:
+        """Configure the SSL context with the X509 certificate, private key and authority"""
+        ...
+
+
 class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     stun_server: tuple[str, int] | None = 'stun.antisip.com', 3478
 
@@ -250,7 +254,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     max_packet_size: int = 16384
     max_retransmissions: int = 2
 
-    def __init__(self, purpose: Purpose, identity: NodeIdentity, *, mtu: int = OPTIMAL_MTU) -> None:
+    def __init__(self, purpose: Purpose, identity: X509IdentityProvider, *, mtu: int = OPTIMAL_MTU) -> None:
         ice_controlling = purpose is Purpose.AttachRequest
         self.identity = identity
         self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
@@ -278,7 +282,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
 
     @staticmethod
     @lru_cache
-    def get_dtls_context(identity: NodeIdentity) -> SSL.Context:
+    def get_dtls_context(identity: X509IdentityProvider) -> SSL.Context:
         context = SSL.Context(SSL.DTLS_METHOD)
         context.set_options(SSL.OP_NO_QUERY_MTU | SSL_OP_NO_RENEGOTIATION)
         context.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT)

@@ -14,7 +14,6 @@ from argparse import ArgumentParser, Namespace
 from functools import cached_property
 from io import BytesIO
 from time import time
-from typing import cast
 
 import aioice
 import trustme
@@ -115,7 +114,7 @@ class TestClient:
         self.host = host
         self.port = port
         self.ssl_context = get_ssl_context(ssl.Purpose.SERVER_AUTH)
-        self.identity = cast(link.NodeIdentity, TestIdentity())
+        self.identity = TestIdentity()
 
     async def run(self) -> None:
         try:
@@ -183,7 +182,7 @@ class TestServer:
         self.host = host
         self.port = port
         self.ssl_context = get_ssl_context(ssl.Purpose.CLIENT_AUTH)
-        self.identity = cast(link.NodeIdentity, TestIdentity())
+        self.identity = TestIdentity()
         # self.ssl_context.sni_callback = self.sni_callback  # noqa: ERA001
 
     async def run(self) -> None:
