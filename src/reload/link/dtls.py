@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import enum
 import struct
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, ClassVar, Protocol, Self, overload
@@ -238,7 +238,7 @@ class ICEPeer:
     candidates: list[Candidate]
 
 
-class X509IdentityProvider(Protocol):
+class X509IdentityProvider(Hashable, Protocol):
     def configure(self, context: SSL.Context) -> None:
         """Configure the SSL context with the X509 certificate, private key and authority"""
         ...
