@@ -9,7 +9,7 @@ from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from secrets import token_bytes as secure_random_bytes
 from types import GenericAlias, NotImplementedType, UnionType, new_class
-from typing import Any, ClassVar, Protocol, Self, SupportsBytes, SupportsIndex, SupportsInt, TypeVar, cast, overload, runtime_checkable
+from typing import Any, ClassVar, Protocol, Self, SupportsBytes, SupportsIndex, SupportsInt, TypeVar, overload, runtime_checkable
 
 __all__ = (  # noqa: RUF022
     # Protocols and types
@@ -1240,7 +1240,7 @@ class List[T: DataWireProtocol](list[T]):
                     case TypeVar():
                         pass  # new type is still generic
                     case type() as list_type:
-                        cls._type_ = cast(type[T], list_type)
+                        cls._type_ = list_type
                     case _:
                         raise TypeError(f'The {cls.__qualname__!r} type can only be parameterized with a single base type or a type variable')
         super().__init_subclass__(**kw)
