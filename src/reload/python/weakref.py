@@ -147,7 +147,8 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
 
     def __init__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]] = (), /) -> None:
         self.__data__ = {}
-        self.update(other)
+        if other:
+            self.update(other)
 
     def __getitem__(self, key: K) -> V:
         try:
