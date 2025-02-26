@@ -50,7 +50,6 @@ class weakobjectid[T](int):
             container.__data__.pop(self, None)
 
 
-# noinspection PyPep8Naming,PyAbstractClass,PyProtocol
 class weakobjectmap_view(Sized, Iterable):
     __slots__ = ('__data__', )
 
@@ -66,7 +65,6 @@ class weakobjectmap_view(Sized, Iterable):
         return f'{self.__class__.__name__}({list(self)!r})'
 
 
-# noinspection PyPep8Naming
 class weakobjectmap_items[K, V](weakobjectmap_view, AbstractSet[tuple[K, V]]):
     __slots__ = ()
 
@@ -90,7 +88,6 @@ class weakobjectmap_items[K, V](weakobjectmap_view, AbstractSet[tuple[K, V]]):
                 yield obj, value
 
 
-# noinspection PyPep8Naming
 class weakobjectmap_keys[K](weakobjectmap_view, AbstractSet[K]):
     __slots__ = ()
 
@@ -110,7 +107,6 @@ class weakobjectmap_keys[K](weakobjectmap_view, AbstractSet[K]):
                 yield obj
 
 
-# noinspection PyPep8Naming
 class weakobjectmap_values[V](weakobjectmap_view, Collection[V]):
     __slots__ = ()
 
@@ -139,7 +135,6 @@ class weakobjectmap_values[V](weakobjectmap_view, Collection[V]):
 #    renders it similarly to a dict
 #
 
-# noinspection PyPep8Naming
 class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     """Map objects to data while keeping weak references to the objects"""
 
@@ -251,7 +246,6 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
         return self.__data__.setdefault(weakobjectid(key, self), default)
 
 
-# noinspection PyPep8Naming
 class defaultweakobjectmap[K, V](weakobjectmap[K, V]):
     default_factory: DefaultFactory[V]
 
