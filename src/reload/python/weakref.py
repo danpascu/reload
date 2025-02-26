@@ -13,7 +13,7 @@ from weakref import ref as wref
 from .types import MarkerEnum
 from .typing import SupportsKeysAndGetItem
 
-__all__ = 'defaultweakobjectmap', 'weakobjectid', 'weakobjectmap'
+__all__ = 'defaultweakobjectmap', 'weakobjectmap'
 
 
 # ruff: noqa: N801
