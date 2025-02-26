@@ -9,7 +9,7 @@ import struct
 from collections.abc import Iterator
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Any, ClassVar, Protocol, Self, cast, overload
+from typing import Any, ClassVar, Protocol, Self, overload
 
 from aioice.candidate import Candidate
 from aioice.ice import Connection as ICEConnection
@@ -426,7 +426,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         if pending > 0:
             data = self.dtls.bio_read(pending)
             for packet in Packetizer(data, mtu=self.mtu):
-                await self.ice.send(cast(bytes, packet))
+                await self.ice.send(packet)  # type: ignore[arg-type]
 
     async def __aenter__(self) -> Self:
         if not self._connected:

@@ -6,7 +6,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator, MutableMap
 from collections.abc import Set as AbstractSet
 from copy import deepcopy
 from reprlib import recursive_repr
-from typing import Any, Literal, Protocol, Self, cast, overload
+from typing import Any, Literal, Protocol, Self, overload
 from weakref import ReferenceType
 from weakref import ref as wref
 
@@ -168,7 +168,8 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
         return id(key) in self.__data__
 
     def __iter__(self) -> Iterator[K]:
-        for key in list(cast(dict[weakobjectid[K], V], self.__data__)):
+        data: dict[weakobjectid[K], V] = self.__data__  # type: ignore[assignment]
+        for key in list(data):
             obj = key.ref()
             if obj is not None:
                 yield obj
@@ -238,7 +239,7 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
             raise KeyError(key) from None
 
     def popitem(self) -> tuple[K, V]:
-        data = cast(dict[weakobjectid[K], V], self.__data__)
+        data: dict[weakobjectid[K], V] = self.__data__  # type: ignore[assignment]
         while True:
             key, value = data.popitem()
             obj = key.ref()
