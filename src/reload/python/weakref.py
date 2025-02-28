@@ -26,7 +26,7 @@ class Marker(MarkerEnum):
 
 
 class WeakObjectContainer(Protocol):
-    __data__: dict[int, Any]
+    _data_: dict[int, Any]
 
 
 class weakobjectid[T](int):
@@ -47,19 +47,19 @@ class weakobjectid[T](int):
     def _remove(self, _: ReferenceType) -> None:
         container = self._container_ref()
         if container is not None:
-            container.__data__.pop(self, None)
+            container._data_.pop(self, None)
 
 
 class weakobjectmap_view(Sized, Iterable):
-    __slots__ = ('__data__', )
+    __slots__ = ('_data_', )
 
-    __data__: dict
+    _data_: dict
 
     def __init__(self, mapping: WeakObjectContainer) -> None:
-        self.__data__ = mapping.__data__
+        self._data_ = mapping._data_
 
     def __len__(self) -> int:
-        return len(self.__data__)
+        return len(self._data_)
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({list(self)!r})'
@@ -68,7 +68,7 @@ class weakobjectmap_view(Sized, Iterable):
 class weakobjectmap_items[K, V](weakobjectmap_view, AbstractSet[tuple[K, V]]):
     __slots__ = ()
 
-    __data__: dict[weakobjectid[K], V]
+    _data_: dict[weakobjectid[K], V]
 
     @classmethod
     def _from_iterable[T](cls, iterable: Iterable[T]) -> set[T]:
@@ -77,12 +77,12 @@ class weakobjectmap_items[K, V](weakobjectmap_view, AbstractSet[tuple[K, V]]):
     def __contains__(self, item: object) -> bool:
         match item:
             case (key, value):
-                return (id(key), value) in self.__data__.items()
+                return (id(key), value) in self._data_.items()
             case _:
                 return False
 
     def __iter__(self) -> Iterator[tuple[K, V]]:
-        for key, value in list(self.__data__.items()):
+        for key, value in list(self._data_.items()):
             obj = key.ref()
             if obj is not None:
                 yield obj, value
@@ -91,17 +91,17 @@ class weakobjectmap_items[K, V](weakobjectmap_view, AbstractSet[tuple[K, V]]):
 class weakobjectmap_keys[K](weakobjectmap_view, AbstractSet[K]):
     __slots__ = ()
 
-    __data__: dict[weakobjectid[K], Any]
+    _data_: dict[weakobjectid[K], Any]
 
     @classmethod
     def _from_iterable[T](cls, iterable: Iterable[T]) -> set[T]:
         return set(iterable)
 
     def __contains__(self, key: object) -> bool:
-        return id(key) in self.__data__
+        return id(key) in self._data_
 
     def __iter__(self) -> Iterator[K]:
-        for key in list(self.__data__):
+        for key in list(self._data_):
             obj = key.ref()
             if obj is not None:
                 yield obj
@@ -110,13 +110,13 @@ class weakobjectmap_keys[K](weakobjectmap_view, AbstractSet[K]):
 class weakobjectmap_values[V](weakobjectmap_view, Collection[V]):
     __slots__ = ()
 
-    __data__: dict[weakobjectid, V]
+    _data_: dict[weakobjectid, V]
 
     def __contains__(self, value: object) -> bool:
-        return value in self.__data__.values()
+        return value in self._data_.values()
 
     def __iter__(self) -> Iterator[V]:
-        for key, value in list(self.__data__.items()):
+        for key, value in list(self._data_.items()):
             if key.ref() is not None:
                 yield value
 
@@ -138,40 +138,40 @@ class weakobjectmap_values[V](weakobjectmap_view, Collection[V]):
 class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     """Map objects to data while keeping weak references to the objects"""
 
-    __data__: dict[int, V]
+    _data_: dict[int, V]
 
     def __init__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]] = (), /) -> None:
-        self.__data__ = {}
+        self._data_ = {}
         if other:
             self.update(other)
 
     def __getitem__(self, key: K) -> V:
         try:
-            return self.__data__[id(key)]
+            return self._data_[id(key)]
         except KeyError:
             return self.__missing__(key)
 
     def __setitem__(self, key: K, value: V) -> None:
-        self.__data__[weakobjectid(key, self)] = value
+        self._data_[weakobjectid(key, self)] = value
 
     def __delitem__(self, key: K) -> None:
         try:
-            del self.__data__[id(key)]
+            del self._data_[id(key)]
         except KeyError:
             raise KeyError(key) from None
 
     def __contains__(self, key: object) -> bool:
-        return id(key) in self.__data__
+        return id(key) in self._data_
 
     def __iter__(self) -> Iterator[K]:
-        data: dict[weakobjectid[K], V] = self.__data__  # type: ignore[assignment]
+        data: dict[weakobjectid[K], V] = self._data_  # type: ignore[assignment]
         for key in list(data):
             obj = key.ref()
             if obj is not None:
                 yield obj
 
     def __len__(self) -> int:
-        return len(self.__data__)
+        return len(self._data_)
 
     def __missing__(self, key: K) -> V:
         raise KeyError(key) from None
@@ -218,7 +218,7 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
         return mapping
 
     def clear(self) -> None:
-        self.__data__.clear()
+        self._data_.clear()
 
     def copy(self) -> Self:
         return copy(self)
@@ -239,7 +239,7 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     def get[T](self, key: K, /, default: T) -> V | T: ...
 
     def get[T](self, key: K, /, default: T | None = None) -> V | T | None:
-        return self.__data__.get(id(key), default)
+        return self._data_.get(id(key), default)
 
     @overload
     def pop(self, key: K, /) -> V: ...
@@ -253,13 +253,13 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     def pop[T](self, key: K, /, default: V | T | Literal[Marker.MissingArgument] = Marker.MissingArgument) -> V | T:
         try:
             if default is Marker.MissingArgument:
-                return self.__data__.pop(id(key))
-            return self.__data__.pop(id(key), default)
+                return self._data_.pop(id(key))
+            return self._data_.pop(id(key), default)
         except KeyError:
             raise KeyError(key) from None
 
     def popitem(self) -> tuple[K, V]:
-        data: dict[weakobjectid[K], V] = self.__data__  # type: ignore[assignment]
+        data: dict[weakobjectid[K], V] = self._data_  # type: ignore[assignment]
         while True:
             key, value = data.popitem()
             obj = key.ref()
@@ -267,7 +267,7 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
                 return obj, value
 
     def setdefault(self, key: K, default: V, /) -> V:
-        return self.__data__.setdefault(weakobjectid(key, self), default)
+        return self._data_.setdefault(weakobjectid(key, self), default)
 
 
 class defaultweakobjectmap[K, V](weakobjectmap[K, V]):
