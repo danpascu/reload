@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from collections.abc import Callable, Collection, Iterable, Iterator, MutableMapping, Sized
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, MutableMapping, Sized
 from collections.abc import Set as AbstractSet
 from copy import deepcopy
 from reprlib import recursive_repr
@@ -181,6 +181,30 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
 
     def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         return self.__class__((key, deepcopy(value, memo)) for key, value in self.items())
+
+    def __ior__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]]) -> Self:
+        self.update(other)
+        return self
+
+    def __or__[KO, VO](self, other: Mapping[KO, VO]) -> 'weakobjectmap[K | KO, V | VO]':
+        if not hasattr(other, 'items'):
+            return NotImplemented
+        instance: weakobjectmap[K | KO, V | VO] = self.__class__(self)  # type: ignore[assignment]
+        for key, value in self.items():
+            instance[key] = value
+        for key, value in other.items():
+            instance[key] = value
+        return instance
+
+    def __ror__[KO, VO](self, other: Mapping[KO, VO]) -> 'weakobjectmap[K | KO, V | VO]':
+        if not hasattr(other, 'items'):
+            return NotImplemented
+        instance: weakobjectmap[K | KO, V | VO] = self.__class__()  # type: ignore[assignment]
+        for key, value in other.items():
+            instance[key] = value
+        for key, value in self.items():
+            instance[key] = value
+        return instance
 
     @recursive_repr(fillvalue='{...}')
     def __repr__(self) -> str:
