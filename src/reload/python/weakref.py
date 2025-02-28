@@ -280,6 +280,36 @@ class defaultweakobjectmap[K, V](weakobjectmap[K, V]):
     def __missing__(self, key: K) -> V:
         return self.setdefault(key, self.default_factory())
 
+    def __copy__(self) -> Self:
+        return self.__class__(self.default_factory, self)
+
+    def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
+        return self.__class__(self.default_factory, ((key, deepcopy(value, memo)) for key, value in self.items()))
+
+    def __ior__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]]) -> Self:
+        self.update(other)
+        return self
+
+    def __or__[KO, VO](self, other: Mapping[KO, VO]) -> 'defaultweakobjectmap[K | KO, V | VO]':
+        if not hasattr(other, 'items'):
+            return NotImplemented
+        instance: defaultweakobjectmap[K | KO, V | VO] = self.__class__(self.default_factory, self)  # type: ignore[assignment]
+        for key, value in self.items():
+            instance[key] = value
+        for key, value in other.items():
+            instance[key] = value
+        return instance
+
+    def __ror__[KO, VO](self, other: Mapping[KO, VO]) -> 'defaultweakobjectmap[K | KO, V | VO]':
+        if not hasattr(other, 'items'):
+            return NotImplemented
+        instance: defaultweakobjectmap[K | KO, V | VO] = self.__class__(self.default_factory)  # type: ignore[assignment]
+        for key, value in other.items():
+            instance[key] = value
+        for key, value in self.items():
+            instance[key] = value
+        return instance
+
     @recursive_repr(fillvalue='{...}')
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.default_factory.__qualname__}, {{{", ".join((f"{key!r}: {value!r}" for key, value in self.items()))}}})'
