@@ -4,7 +4,7 @@
 
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, MutableMapping, Sized
 from collections.abc import Set as AbstractSet
-from copy import deepcopy
+from copy import copy, deepcopy
 from reprlib import recursive_repr
 from typing import Any, Literal, Protocol, Self, overload
 from weakref import ReferenceType
@@ -221,7 +221,7 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
         self.__data__.clear()
 
     def copy(self) -> Self:
-        return self.__class__(self)
+        return copy(self)
 
     def items(self) -> weakobjectmap_items[K, V]:  # type: ignore[override]
         return weakobjectmap_items(self)
