@@ -27,6 +27,7 @@ class Marker(MarkerEnum):
 
 class WeakObjectContainer(Protocol):
     _data_: dict[int, Any]
+    _wref_: ReferenceType[Self]
 
 
 class weakobjectid[T](int):
@@ -36,7 +37,7 @@ class weakobjectid[T](int):
     def __new__(cls, obj: T, mapping: WeakObjectContainer, /) -> Self:
         self = super().__new__(cls, id(obj))
         self.ref = wref(obj, self._remove)
-        self._container_ref = wref(mapping)
+        self._container_ref = mapping._wref_
         return self
 
     def __repr__(self) -> str:
@@ -139,9 +140,11 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     """Map objects to data while keeping weak references to the objects"""
 
     _data_: dict[int, V]
+    _wref_: ReferenceType[Self]
 
     def __init__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]] = (), /) -> None:
         self._data_ = {}
+        self._wref_ = wref(self)
         if other:
             self.update(other)
 
