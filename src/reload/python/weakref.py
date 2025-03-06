@@ -289,10 +289,6 @@ class defaultweakobjectmap[K, V](weakobjectmap[K, V]):
     def __deepcopy__(self, memo: dict[int, Any] | None) -> Self:
         return self.__class__(self.default_factory, ((key, deepcopy(value, memo)) for key, value in self.items()))
 
-    def __ior__(self, other: SupportsKeysAndGetItem[K, V] | Iterable[tuple[K, V]]) -> Self:
-        self.update(other)
-        return self
-
     def __or__[KO, VO](self, other: Mapping[KO, VO]) -> 'defaultweakobjectmap[K | KO, V | VO]':
         if not hasattr(other, 'items'):
             return NotImplemented
