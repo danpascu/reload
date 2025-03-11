@@ -1235,7 +1235,7 @@ class List[T: DataWireProtocol](list[T]):
         if not custom_repr:
             cls.__repr__ = list.__repr__  # type: ignore[method-assign]
         for base in getattr(cls, '__orig_bases__', ()):
-            if isinstance(base, GenericAlias) and issubclass(base.__origin__, List):
+            if isinstance(base, GenericAlias) and isinstance(base.__origin__, type) and issubclass(base.__origin__, List):
                 match base.__args__[0]:
                     case TypeVar():
                         pass  # new type is still generic
