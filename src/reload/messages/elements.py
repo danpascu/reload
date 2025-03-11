@@ -6,15 +6,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar, copy_context
 from dataclasses import dataclass
-from enum import Enum
 from functools import reduce
 from inspect import Parameter, Signature
 from io import BytesIO
 from itertools import chain
 from operator import or_
-from types import NoneType, UnionType, new_class
+from types import UnionType, new_class
 from typing import ClassVar, Self, cast, dataclass_transform, overload
 
+from reload.python import reprproxy
 from reload.python.contextvars import ContextSpec, run_in_context
 
 from .datamodel import AdapterRegistry, DataWireAdapter, DataWireProtocol, List, NoLength, Opaque, UnsignedInteger, WireData, make_list_type, make_variable_length_list_type
@@ -76,7 +76,7 @@ class Structure:  # noqa: PLW1641
         cls._default_arguments = {p.name: p.default for p in cls.__signature__.parameters.values() if p.default is not Parameter.empty}
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__qualname__}({', '.join(f'{name}={_reprproxy(getattr(self, name))!r}' for name in self._fields_)})'
+        return f'{self.__class__.__qualname__}({', '.join(f'{name}={reprproxy(getattr(self, name))!r}' for name in self._fields_)})'
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Structure):
@@ -115,26 +115,6 @@ class ContextStructure[T: Structure, U, **P]:
 
 
 # Helpers
-
-class _reprproxy:  # noqa: N801
-    # Provide better representation for certain types which can be evaluated to recreate the object.
-
-    def __init__(self, value: object) -> None:
-        self.value = value
-
-    def __repr__(self) -> str:
-        match self.value:
-            case Enum() as value:  # this also covers Flag which is a subclass of Enum
-                return f'{value.__class__.__qualname__}.{value.name}'
-            case UnionType() as value:
-                return ' | '.join('None' if _type is NoneType else _type.__qualname__ for _type in value.__args__)
-            case type() as value:
-                return value.__qualname__
-            case value:
-                return repr(value)
-
-    __str__ = __repr__
-
 
 def _protocol2adapter[T: DataWireProtocol](proto: type[T]) -> type[DataWireAdapter[T]]:
     # Turn a DataWireProtocol into a DataWireAdapter by creating a stand-in adapter on the fly.
@@ -262,7 +242,7 @@ class Element[T](ElementDescriptor[T]):
         self.adapter = adapter
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({_reprproxy(self.type)!r}, default={self.default!r}, adapter={_reprproxy(self.provided_adapter)!r})'
+        return f'{self.__class__.__name__}({reprproxy(self.type)!r}, default={self.default!r}, adapter={reprproxy(self.provided_adapter)!r})'
 
     def __set_name__(self, owner: type[Structure], name: str) -> None:
         if self.name is None:
@@ -337,9 +317,9 @@ class DependentElementSpec[T: DataWireProtocol, U]:
                 raise TypeError(f'The fallback type size length does not match the length type size ({self.fallback_type._sizelen_} != {self.length_type._size_})')
 
     def __repr__(self) -> str:
-        type_map = {_reprproxy(name): _reprproxy(value) for name, value in self.type_map.items()}
-        fallback_type = _reprproxy(self.fallback_type)
-        length_type = _reprproxy(self.length_type)
+        type_map = {reprproxy(name): reprproxy(value) for name, value in self.type_map.items()}
+        fallback_type = reprproxy(self.fallback_type)
+        length_type = reprproxy(self.length_type)
         return f'{self.__class__.__qualname__}({type_map=}, {fallback_type=}, {length_type=}, check_length={self.check_length!r})'
 
 

@@ -170,7 +170,7 @@ from reload.messages.elements import (
     FieldDependentElement,
     ListElement,
     Structure,
-    _reprproxy,
+    reprproxy,
 )
 from reload.messages.exceptions import UnknownKindError
 from reload.messages.kinds import AccessControl, CertificateByUser, DataModel, Kind, SIPRegistration
@@ -757,10 +757,10 @@ destination_type: ContextVar[DestinationType] = ContextVar('destination_type')
 class TestElements:
 
     def test_helpers(self) -> None:
-        assert repr(_reprproxy(AddressType.ipv4_address)) == 'AddressType.ipv4_address'
-        assert repr(_reprproxy(AddressType | UInt8)) == 'AddressType | UInt8'
-        assert repr(_reprproxy(Opaque8)) == 'Opaque8'
-        assert repr(_reprproxy('test')) == repr('test')
+        assert repr(reprproxy(AddressType.ipv4_address)) == 'AddressType.ipv4_address'
+        assert repr(reprproxy(AddressType | UInt8)) == 'AddressType | UInt8'
+        assert repr(reprproxy(Opaque8)) == 'Opaque8'
+        assert repr(reprproxy('test')) == repr('test')
 
     def test_element(self) -> None:
         with pytest.raises(TypeError, match='When the element type is a union of types a composite adapter for the same types must be provided'):
