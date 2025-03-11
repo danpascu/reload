@@ -10,7 +10,16 @@ __all__ = 'reprproxy',  # noqa: COM818
 
 
 class reprproxy:  # noqa: N801
-    # Provide better representation for certain types which can be evaluated to recreate the object.
+    """
+    A proxy to provide better representation for certain types.
+
+    The representation will mimic their appearance in the code,
+    which can be useful to make error messages more readable.
+
+    This applies to type aliases, generic aliases, union types,
+    classes and Enum members. Everything else gets their normal
+    representation.
+    """
 
     def __init__(self, value: object) -> None:
         self.value = value
