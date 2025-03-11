@@ -6,7 +6,7 @@ from enum import Enum
 from types import GenericAlias, NoneType, UnionType
 from typing import TypeAliasType
 
-__all__ = 'reprproxy',  # noqa: COM818
+__all__ = 'better_repr', 'reprproxy'
 
 
 def better_repr(value: object) -> str:
