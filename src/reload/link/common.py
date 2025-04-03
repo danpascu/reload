@@ -4,8 +4,10 @@
 
 from dataclasses import dataclass
 from os.path import expanduser, realpath
+from ssl import SSLContext
+from typing import assert_never
 
-from OpenSSL.SSL import Context
+from OpenSSL import SSL
 
 __all__ = 'NodeIdentity',  # noqa: COM818
 
@@ -34,8 +36,15 @@ class NodeIdentity:
     private_key_file: PathAttribute = PathAttribute()
     authority_file:   PathAttribute = PathAttribute()
 
-    def configure(self, context: Context) -> None:
+    def configure(self, context: SSLContext | SSL.Context) -> None:
         """Configure the SSL context with this object's certificate and authority files"""
-        context.load_verify_locations(self.authority_file)
-        context.use_certificate_chain_file(self.certificate_file)
-        context.use_privatekey_file(self.private_key_file)
+        match context:
+            case SSLContext():
+                context.load_verify_locations(cafile=self.authority_file)
+                context.load_cert_chain(certfile=self.certificate_file, keyfile=self.private_key_file)
+            case SSL.Context():
+                context.load_verify_locations(self.authority_file)
+                context.use_certificate_chain_file(self.certificate_file)
+                context.use_privatekey_file(self.private_key_file)
+            case _:
+                assert_never(context)
