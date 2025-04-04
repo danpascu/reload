@@ -293,7 +293,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     async def prepare(self) -> None:
         await self.ice.gather_candidates()
 
-    async def connect(self, ice_peer: ICEPeer) -> None:  # noqa: C901, PLR0912
+    async def connect(self, ice_peer: ICEPeer) -> None:  # noqa: C901, PLR0912, PLR0915
         async with self._connect_lock:  # noqa: PLR1702
             if self._closed:
                 raise aio.ClosedResourceError
@@ -349,6 +349,11 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         else:
                             break
                     self.dtls.bio_write(data)
+                except SSL.Error:
+                    self._closed = True
+                    await self._send_pending_data()
+                    await self.ice.close()
+                    raise
                 else:
                     await self._send_pending_data()
                     break
