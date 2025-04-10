@@ -417,8 +417,9 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         await self._send_pending_data()
                         break
                     except SSL.Error:
-                        # NOTE @dan: what to do about this? fail or ignore? (note: after SSL.Error DTLS shutdown should not be attempted)
-                        pass
+                        # NOTE: After SSL.Error DTLS shutdown should not be attempted
+                        await self._send_pending_data()
+                        break
                     else:
                         await self._channel.send(data)
         finally:
