@@ -208,6 +208,9 @@ __all__ = (  # noqa: RUF022
     'MessageContents',
     'SecurityBlock',
 
+    # Message framing
+    'FramedMessage',
+
     # Helpers
     'new_transaction_id',
     'overlay_id',
