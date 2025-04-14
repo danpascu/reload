@@ -416,8 +416,8 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         self._done = asyncio.Future()
         try:
             async with asyncio.TaskGroup() as group:
-                receiver_task = group.create_task(self._receiver_loop(), name=f'Link {self!r} receiver')  # NOTE: change self to nodeid
-                __sender_task = group.create_task(self._sender_loop(), name=f'Link {self!r} sender')
+                receiver_task = group.create_task(self._receiver_loop(), name=f'DTLS Link {self!r} receiver')  # NOTE: change self to nodeid
+                __sender_task = group.create_task(self._sender_loop(), name=f'DTLS Link {self!r} sender')
                 await self._done
                 self.dtls.shutdown()
                 await self._send_pending_data()
