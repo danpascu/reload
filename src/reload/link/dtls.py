@@ -364,6 +364,10 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     def data_mtu(self) -> int:
         return self.dtls.get_cleartext_mtu()
 
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
     @staticmethod
     @lru_cache
     def get_dtls_context(identity: X509IdentityProvider) -> SSL.Context:
