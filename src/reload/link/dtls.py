@@ -345,8 +345,6 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         self._purpose = purpose
         self._done: asyncio.Future[None] = NotImplemented  # will be set when connected
         self._control_task: asyncio.Task | None = None
-        self._receiver_task: asyncio.Task | None = None
-        self._sender_task: asyncio.Task | None = None
         self._frame_sequence = count(1)
         self._pending_message: PendingMessage | None = None
         self.mtu = mtu  # NOTE @dan: rename to handshake_mtu/link_mtu?
