@@ -419,14 +419,11 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                 receiver_task = group.create_task(self._receiver_loop(), name=f'DTLS Link {self!r} receiver')  # NOTE: change self to nodeid
                 __sender_task = group.create_task(self._sender_loop(), name=f'DTLS Link {self!r} sender')
                 await self._done
-                self.dtls.shutdown()
-                await self._send_pending_data()
-                try:
-                    async with asyncio.timeout(self.dtls_shutdown_timeout):
-                        await receiver_task
-                except TimeoutError as exc:
-                    raise aio.BrokenResourceError from exc
-        except* (ConnectionError, aio.ClosedResourceError, aio.BrokenResourceError):
+                async with asyncio.timeout(self.dtls_shutdown_timeout):
+                    self.dtls.shutdown()
+                    await self._send_pending_data()
+                    await receiver_task
+        except* (ConnectionError, TimeoutError, aio.ClosedResourceError, aio.BrokenResourceError):
             # The ICE connection is down, DTLS was closed by the peer or we're not getting ACKs
             # for our messages. In all these cases attempting a DTLS shutdown is pointless.
             pass
