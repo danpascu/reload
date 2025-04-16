@@ -64,7 +64,7 @@ class OutgoingMessage:
     def __await__(self) -> Generator[Any, None, None]:
         return self.sent.__await__()
 
-    def notify_sender(self, *, status: Exception | type[Exception] | None = None) -> None:
+    def notify_sender(self, *, status: type[Exception] | Exception | None = None) -> None:
         if self.sent.done():
             return
         if status is None:
