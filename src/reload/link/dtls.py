@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 import asyncio
+import contextlib
 import enum
 import struct
 from collections.abc import Hashable, Iterator
@@ -539,7 +540,8 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                 else:
                     # No ACK for the message after 5 transmissions. Consider the connection dead.
                     self._pending_message = None
-                    await self.ice.close()
+                    with contextlib.suppress(ConnectionError):
+                        await self.ice.close()
                     return
 
     async def _send_pending_data(self) -> None:
