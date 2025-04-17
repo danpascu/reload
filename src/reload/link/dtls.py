@@ -406,12 +406,12 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         await self._send_channel.send(message := OutgoingMessage(data))
         await message
 
-    def _notify_done(self, reason: type[Exception] | Exception | None = None) -> None:
+    def _notify_done(self, status: type[Exception] | Exception | None = None) -> None:
         if not self._done.done():
-            if reason is None:
+            if status is None:
                 self._done.set_result(None)
             else:
-                self._done.set_exception(reason)
+                self._done.set_exception(status)
 
     async def _link_manager(self) -> None:
         self._done = asyncio.Future()
@@ -431,10 +431,12 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         finally:
             async for message in self._send_channel:
                 message.notify_sender(status=aio.ClosedResourceError)
+            await self.ice.close()
             await self._recv_channel
 
     async def _receiver_loop(self) -> None:
         # the receiver loop will run until it receives a DTLS shutdown or the ICE connection ends/breaks.
+        connection_status = None
         try:
             self._input_buffer.clear()
             with self._recv_channel:
@@ -444,11 +446,8 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                     try:
                         data = await self.ice.recv()
                     except ConnectionError:
-                        if self._pending_message is not None:
-                            self._pending_message.done.set_exception(aio.ClosedResourceError)
-                            self._pending_message = None
-                        self._notify_done(reason=aio.ClosedResourceError)
-                        break  # NOTE @dan: raise or break here?
+                        connection_status = aio.ClosedResourceError
+                        break
                     self.dtls.bio_write(data)
                     try:
                         data = self.dtls.recv(self.max_packet_size)
@@ -457,44 +456,44 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                     except SSL.ZeroReturnError:
                         self.dtls.shutdown()
                         await self._send_pending_data()
-                        if self._pending_message is not None:
-                            self._pending_message.done.set_exception(aio.ClosedResourceError)
-                            self._pending_message = None
-                        self._notify_done(reason=aio.ClosedResourceError)
+                        await self.ice.close()
+                        connection_status = aio.ClosedResourceError
                         break
                     except SSL.Error:
                         # NOTE: After SSL.Error DTLS shutdown should not be attempted
                         await self._send_pending_data()
-                        if self._pending_message is not None:
-                            self._pending_message.done.set_exception(aio.BrokenResourceError)
-                            self._pending_message = None
-                        self._notify_done(reason=aio.BrokenResourceError)
+                        await self.ice.close()
+                        connection_status = aio.BrokenResourceError
                         break
                     else:
                         self._input_buffer.write(data)
-                        await self._process_incoming_messages()
+                        try:
+                            await self._process_incoming_messages()
+                        except ValueError:
+                            self.dtls.shutdown()
+                            await self._send_pending_data()
         finally:
+            # NO async code should be called after calling self._notify_done
+            # as it will be automatically cancelled.
             self._closed = True
-            self._pending_message = None
             self._send_channel.close()
-            await self.ice.close()
+            if self._pending_message is not None:
+                self._pending_message.notify_done(status=connection_status)
+                self._pending_message = None
+            self._notify_done(status=connection_status)
 
     async def _process_incoming_messages(self) -> None:
-        try:
-            for message in self._input_buffer:
-                match message.frame:
-                    case AckFrame() as frame:
-                        if self._pending_message is not None and frame.sequence in self._pending_message.sequence_numbers:
-                            self._pending_message.done.set_result(None)
-                            self._pending_message = None
-                    case DataFrame() as frame:
-                        ack = FramedMessage(type=FramedMessageType.ack, frame=AckFrame(sequence=frame.sequence, received=0xffffffff))
-                        self.dtls.send(ack.to_wire())
-                        await self._send_pending_data()
-                        await self._recv_channel.send(frame.message)
-        except ValueError:
-            self.dtls.shutdown()
-            await self._send_pending_data()
+        for message in self._input_buffer:
+            match message.frame:
+                case AckFrame() as frame:
+                    if self._pending_message is not None and self._pending_message.match(frame):
+                        self._pending_message.notify_done()
+                        self._pending_message = None
+                case DataFrame() as frame:
+                    ack = FramedMessage(type=FramedMessageType.ack, frame=AckFrame(sequence=frame.sequence, received=0xffffffff))
+                    self.dtls.send(ack.to_wire())
+                    await self._send_pending_data()
+                    await self._recv_channel.send(frame.message)
 
     async def _sender_loop(self) -> None:
         # Send one message at a time and wait for the ACK before moving to the next message

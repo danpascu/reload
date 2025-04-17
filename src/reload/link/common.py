@@ -12,7 +12,7 @@ from typing import Any, ClassVar, Self, assert_never
 
 from OpenSSL import SSL
 
-from reload.messages import FramedMessage
+from reload.messages import AckFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
 
 __all__ = 'NodeIdentity', 'OutgoingMessage', 'PendingMessage', 'FramedMessageBuffer'  # noqa: RUF022
@@ -78,6 +78,17 @@ class PendingMessage:
     message: FramedMessage
     sequence_numbers: set[int] = field(init=False, default_factory=set)
     done: asyncio.Future[None] = field(init=False, default_factory=asyncio.Future)
+
+    def match(self, frame: AckFrame) -> bool:
+        return frame.sequence in self.sequence_numbers
+
+    def notify_done(self, status: type[Exception] | Exception | None = None) -> None:
+        if self.done.done():
+            return
+        if status is None:
+            self.done.set_result(None)
+        else:
+            self.done.set_exception(status)
 
 
 class FramedMessageBuffer(Iterator[FramedMessage]):
