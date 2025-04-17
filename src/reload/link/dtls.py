@@ -528,7 +528,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         await self._send_pending_data()
                     try:
                         async with asyncio.timeout(timeout):
-                            await pending_message.done
+                            await asyncio.shield(pending_message.done)
                     except TimeoutError:
                         timeout *= 2
                         continue
