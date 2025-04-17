@@ -262,18 +262,18 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         self.identity = identity
         self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
         self.dtls = DTLSConnection(self.get_dtls_context(identity))
+        self.mtu = mtu
+        self._purpose = purpose
         self._input_buffer: FramedMessageBuffer = FramedMessageBuffer()
         self._recv_channel = aio.Channel[bytes](10)
         self._send_channel = aio.Channel[OutgoingMessage](10)
         self._connect_lock = asyncio.Lock()
         self._connected = False
         self._closed = False
-        self._purpose = purpose
         self._done: asyncio.Future[None] = NotImplemented  # will be set when connected
         self._control_task: asyncio.Task | None = None
         self._frame_sequence = count(1)
         self._pending_message: PendingMessage | None = None
-        self.mtu = mtu  # NOTE @dan: rename to handshake_mtu/link_mtu?
 
     @property
     def mtu(self) -> int:
