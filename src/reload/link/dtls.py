@@ -255,7 +255,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     dtls_hello_timeout: int = 30    # how long the server waits for a client hello
     dtls_shutdown_timeout: int = 3  # how long to wait for confirmation on DTLS shutdown
 
-    max_packet_size: int = 16384
+    max_packet_size: int = 2**14    # max TLS/DTLS record size
     max_retransmissions: int = 2
 
     def __init__(self, purpose: Purpose, identity: X509IdentityProvider, *, mtu: int = OPTIMAL_MTU) -> None:
