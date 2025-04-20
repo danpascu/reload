@@ -40,6 +40,7 @@ class TLSEndpoint:
         self._frame_sequence = count(1)
         self._pending_message: PendingMessage | None = None
         self._closed = False
+        self._shutdown = False
         self._done: asyncio.Future[None] = asyncio.Future()
         self._control_task: asyncio.Task = asyncio.create_task(self._link_manager())
 
@@ -82,13 +83,6 @@ class TLSEndpoint:
         await self._send_channel.send(message := OutgoingMessage(data))
         await message
 
-    def _notify_done(self, status: type[Exception] | Exception | None = None) -> None:
-        if not self._done.done():
-            if status is None:
-                self._done.set_result(None)
-            else:
-                self._done.set_exception(status)
-
     async def _link_manager(self) -> None:
         self._done = asyncio.Future()
         try:
@@ -96,10 +90,9 @@ class TLSEndpoint:
                 receiver_task = group.create_task(self._receiver_loop(), name=f'TLS Link {self!r} receiver')  # NOTE: change self to nodeid
                 __sender_task = group.create_task(self._sender_loop(), name=f'TLS Link {self!r} sender')
                 await self._done
-                self._writer.close()
-                await self._writer.wait_closed()
+                await self._shutdown_tls()
                 await receiver_task
-        except* (BrokenPipeError, ConnectionError, TimeoutError, aio.BrokenResourceError, aio.ClosedResourceError):
+        except* (aio.BrokenResourceError, aio.ClosedResourceError):
             # The TLS connection is down, TLS was closed by the peer or we're not getting ACKs
             # for our messages. In all these cases attempting a TLS shutdown is pointless.
             pass
@@ -114,22 +107,16 @@ class TLSEndpoint:
             self._input_buffer.clear()
             with self._recv_channel:
                 while True:
-                    data = await self._reader.read(self.max_packet_size)
-                    if not data:
-                        connection_status = aio.ClosedResourceError
-                        break
+                    data = await self._read_data()
                     self._input_buffer.write(data)
                     try:
                         await self._process_incoming_messages()
                     except ValueError:
-                        self._writer.close()
-                        await self._writer.wait_closed()
+                        await self._shutdown_tls()
                         connection_status = aio.ClosedResourceError
                         break
-        except (BrokenPipeError, TimeoutError):
-            connection_status = aio.BrokenResourceError
-        except ConnectionError:
-            connection_status = aio.ClosedResourceError
+        except (aio.BrokenResourceError, aio.ClosedResourceError) as exc:
+            connection_status = exc
         finally:
             # NO async code should be called after calling self._notify_done
             # as it will be automatically cancelled.
@@ -176,14 +163,9 @@ class TLSEndpoint:
                     pending_message.sequence_numbers.add(sequence)
 
                     try:
-                        self._writer.write(pending_message.message.to_wire())
-                        await self._writer.drain()
-                    except (BrokenPipeError, TimeoutError):
-                        message.notify_sender(status=aio.BrokenResourceError)
-                        self._pending_message = None
-                        return
-                    except ConnectionError:
-                        message.notify_sender(status=aio.ClosedResourceError)
+                        await self._send_data(pending_message.message.to_wire())
+                    except (aio.BrokenResourceError, aio.ClosedResourceError) as exc:
+                        message.notify_sender(status=exc)
                         self._pending_message = None
                         return
                     else:
@@ -202,10 +184,52 @@ class TLSEndpoint:
                 else:
                     # No ACK for the message after 5 transmissions. Consider the connection dead.
                     self._pending_message = None
-                    with contextlib.suppress(BrokenPipeError, ConnectionError, TimeoutError):
-                        self._writer.close()
-                        await self._writer.wait_closed()
+                    with contextlib.suppress(aio.BrokenResourceError, aio.ClosedResourceError):
+                        await self._shutdown_tls()
                     return
+
+    async def _read_data(self) -> bytes:
+        try:
+            data = await self._reader.read(self.max_packet_size)
+        except (BrokenPipeError, TimeoutError) as exc:
+            raise aio.BrokenResourceError from exc
+        except ConnectionError as exc:
+            raise aio.ClosedResourceError from exc
+        else:
+            if not data:
+                raise aio.ClosedResourceError
+            return data
+
+    async def _send_data(self, data: bytes) -> None:
+        if self._closed:
+            raise aio.ClosedResourceError
+        try:
+            self._writer.write(data)
+            await self._writer.drain()
+        except (BrokenPipeError, TimeoutError) as exc:
+            raise aio.BrokenResourceError from exc
+        except ConnectionError as exc:
+            raise aio.ClosedResourceError from exc
+
+    async def _shutdown_tls(self) -> None:
+        if self._shutdown:
+            return
+        self._shutdown = True
+        self._closed = True
+        try:
+            self._writer.close()
+            await self._writer.wait_closed()
+        except (BrokenPipeError, TimeoutError) as exc:
+            raise aio.BrokenResourceError from exc
+        except ConnectionError as exc:
+            raise aio.ClosedResourceError from exc
+
+    def _notify_done(self, status: type[Exception] | Exception | None = None) -> None:
+        if not self._done.done():
+            if status is None:
+                self._done.set_result(None)
+            else:
+                self._done.set_exception(status)
 
     async def __aenter__(self) -> Self:
         return self
