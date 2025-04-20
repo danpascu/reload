@@ -6,6 +6,7 @@ import asyncio
 import contextlib
 import enum
 import struct
+from collections import deque
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
 from functools import lru_cache
@@ -265,12 +266,14 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         self.dtls = DTLSConnection(self.get_dtls_context(identity))
         self.mtu = mtu
         self._purpose = purpose
-        self._input_buffer: FramedMessageBuffer = FramedMessageBuffer()
         self._recv_channel = aio.Channel[bytes](10)
         self._send_channel = aio.Channel[OutgoingMessage](10)
+        self._input_buffer: FramedMessageBuffer = FramedMessageBuffer()
+        self._output_queue: deque[bytes] = deque()
         self._connect_lock = asyncio.Lock()
         self._connected = False
         self._closed = False
+        self._shutdown = False
         self._done: asyncio.Future[None] = NotImplemented  # will be set when connected
         self._control_task: asyncio.Task | None = None
         self._frame_sequence = count(1)
@@ -406,13 +409,6 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
         await self._send_channel.send(message := OutgoingMessage(data))
         await message
 
-    def _notify_done(self, status: type[Exception] | Exception | None = None) -> None:
-        if not self._done.done():
-            if status is None:
-                self._done.set_result(None)
-            else:
-                self._done.set_exception(status)
-
     async def _link_manager(self) -> None:
         self._done = asyncio.Future()
         try:
@@ -421,8 +417,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                 __sender_task = group.create_task(self._sender_loop(), name=f'DTLS Link {self!r} sender')
                 await self._done
                 async with asyncio.timeout(self.dtls_shutdown_timeout):
-                    self.dtls.shutdown()
-                    await self._send_pending_data()
+                    await self._shutdown_dtls()
                     await receiver_task
         except* (ConnectionError, TimeoutError, aio.ClosedResourceError, aio.BrokenResourceError):
             # The ICE connection is down, DTLS was closed by the peer or we're not getting ACKs
@@ -441,42 +436,20 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
             self._input_buffer.clear()
             with self._recv_channel:
                 while True:
-                    # If we get ConnectionError at any point, it means that either the ICE connection was
-                    # closed or it did timeout. In either case there is nothing we can do
+                    data = await self._read_data()
+                    self._input_buffer.write(data)
                     try:
-                        data = await self.ice.recv()
-                    except ConnectionError:
-                        connection_status = aio.ClosedResourceError
-                        break
-                    self.dtls.bio_write(data)
-                    try:
-                        data = self.dtls.recv(self.max_packet_size)
-                    except (SSL.WantReadError, SSL.WantWriteError):
-                        await self._send_pending_data()
-                    except SSL.ZeroReturnError:
-                        self.dtls.shutdown()
-                        await self._send_pending_data()
-                        await self.ice.close()
-                        connection_status = aio.ClosedResourceError
-                        break
-                    except SSL.Error:
-                        # NOTE: After SSL.Error DTLS shutdown should not be attempted
-                        await self._send_pending_data()
-                        await self.ice.close()
-                        connection_status = aio.BrokenResourceError
-                        break
-                    else:
-                        self._input_buffer.write(data)
-                        try:
-                            await self._process_incoming_messages()
-                        except ValueError:
-                            self.dtls.shutdown()
-                            await self._send_pending_data()
+                        await self._process_incoming_messages()
+                    except ValueError:
+                        await self._shutdown_dtls()
+        except (aio.BrokenResourceError, aio.ClosedResourceError) as exc:
+            connection_status = exc
         finally:
             # NO async code should be called after calling self._notify_done
             # as it will be automatically cancelled.
             self._closed = True
             self._send_channel.close()
+            self._output_queue.clear()
             if self._pending_message is not None:
                 self._pending_message.notify_done(status=connection_status)
                 self._pending_message = None
@@ -491,8 +464,7 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         self._pending_message = None
                 case DataFrame() as frame:
                     ack = FramedMessage(type=FramedMessageType.ack, frame=AckFrame(sequence=frame.sequence, received=0xffffffff))
-                    self.dtls.send(ack.to_wire())
-                    await self._send_pending_data()
+                    await self._send_data(ack.to_wire())
                     await self._recv_channel.send(frame.message)
 
     async def _sender_loop(self) -> None:
@@ -512,20 +484,20 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         message.notify_sender(status=aio.ClosedResourceError)
                         self._pending_message = None
                         return
+
                     sequence = next(self._frame_sequence)
                     data_frame.sequence = sequence
                     pending_message.sequence_numbers.add(sequence)
+
                     try:
-                        self.dtls.send(pending_message.message.to_wire())
-                    except SSL.Error:
-                        message.notify_sender(status=aio.BrokenResourceError)
+                        await self._send_data(pending_message.message.to_wire())
+                    except (aio.BrokenResourceError, aio.ClosedResourceError) as exc:
+                        message.notify_sender(status=exc)
                         self._pending_message = None
-                        await self._send_pending_data()
-                        await self.ice.close()
                         return
                     else:
                         message.notify_sender()
-                        await self._send_pending_data()
+
                     try:
                         async with asyncio.timeout(timeout):
                             await asyncio.shield(pending_message.done)
@@ -543,12 +515,100 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
                         await self.ice.close()
                     return
 
+    async def _read_data(self) -> bytearray:
+        while True:
+            try:
+                async with asyncio.timeout(self.dtls_shutdown_timeout if self._shutdown else None):
+                    data = await self.ice.recv()
+            except TimeoutError as exc:
+                raise aio.BrokenResourceError from exc
+            except ConnectionError as exc:
+                raise aio.ClosedResourceError from exc
+
+            self.dtls.bio_write(data)
+
+            input_data = bytearray()
+            while True:
+                try:
+                    chunk = self.dtls.recv(self.max_packet_size)
+                except SSL.WantReadError:
+                    break
+                except SSL.ZeroReturnError as exc:
+                    self._closed = True
+                    self.dtls.shutdown()
+                    await self._send_pending_data()
+                    await self.ice.close()
+                    raise aio.ClosedResourceError from exc
+                except SSL.Error as exc:
+                    # NOTE: After SSL.Error dtls.shutdown() must not be called. See:
+                    # https://docs.openssl.org/1.1.1/man3/SSL_get_error/#return-values
+                    # about SSL_ERROR_SSL (which translates to SSL.Error).
+                    self._closed = True
+                    await self._send_pending_data()
+                    await self.ice.close()
+                    raise aio.BrokenResourceError from exc
+                else:
+                    input_data.extend(chunk)
+
+            await self._try_send_queued_data()
+
+            if input_data:
+                return input_data
+
+    async def _send_data(self, data: bytes) -> None:
+        if self._closed:
+            raise aio.ClosedResourceError
+        self._output_queue.append(data)
+        await self._try_send_queued_data()
+
+    async def _try_send_queued_data(self) -> None:
+        if self._closed:
+            # Ingore the output queue after the DTLS shutdown alert was sent,
+            # as dtls.send() doesn't work after that (raises SSL.Error) and
+            # raising an exception here would kill the receiver loop and
+            # discard the remaining messages, including the peer's close alert
+            # which we're expecting in order to finish closing the connection.
+            return
+        while self._output_queue:
+            data = self._output_queue[0]
+            try:
+                self.dtls.send(data)
+            except SSL.WantReadError:
+                await self._send_pending_data()
+                break
+            except SSL.Error as exc:
+                # NOTE: After SSL.Error dtls.shutdown() must not be called. See:
+                # https://docs.openssl.org/1.1.1/man3/SSL_get_error/#return-values
+                # about SSL_ERROR_SSL (which translates to SSL.Error).
+                self._closed = True
+                await self._send_pending_data()
+                await self.ice.close()
+                raise aio.BrokenResourceError from exc
+            else:
+                self._output_queue.popleft()
+                await self._send_pending_data()
+
     async def _send_pending_data(self) -> None:
         pending = self.dtls.bio_pending()
         if pending > 0:
             data = self.dtls.bio_read(pending)
             for packet in Packetizer(data, mtu=self.mtu):
                 await self.ice.send(packet)  # type: ignore[arg-type]
+
+    async def _shutdown_dtls(self) -> None:
+        if self._shutdown:
+            return
+        self._shutdown = True
+        self._closed = True
+        self.dtls.shutdown()
+        await self._send_pending_data()
+
+    def _notify_done(self, status: type[Exception] | Exception | None = None) -> None:
+        if not self._done.done():
+            if status is None:
+                self._done.set_result(None)
+            else:
+                self._done.set_exception(status)
 
     async def __aenter__(self) -> Self:
         if not self._connected:
