@@ -170,9 +170,11 @@ class TLSEndpoint:
                         message.notify_sender(status=aio.ClosedResourceError)
                         self._pending_message = None
                         return
+
                     sequence = next(self._frame_sequence)
                     data_frame.sequence = sequence
                     pending_message.sequence_numbers.add(sequence)
+
                     try:
                         self._writer.write(pending_message.message.to_wire())
                         await self._writer.drain()
@@ -186,6 +188,7 @@ class TLSEndpoint:
                         return
                     else:
                         message.notify_sender()
+
                     try:
                         async with asyncio.timeout(timeout):
                             await asyncio.shield(pending_message.done)
