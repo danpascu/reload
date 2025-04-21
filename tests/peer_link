@@ -11,12 +11,10 @@ import logging
 import random
 import ssl
 from argparse import ArgumentParser, Namespace
-from functools import cached_property
 from io import BytesIO
 from time import time
 
 import aioice
-import trustme
 from OpenSSL import SSL
 
 from reload import link
@@ -40,43 +38,14 @@ from reload.messages.datamodel import DestinationType, ErrorCode, HashAlgorithm,
 # ruff: noqa: T201
 
 # dummy overlay configuration for testing
-configuration = Configuration(instance_name='test.com', sequence=17, initial_ttl=100)  # pyright: ignore[reportCallIssue]
+configuration = Configuration(instance_name='test.link', sequence=17, initial_ttl=100)  # pyright: ignore[reportCallIssue]
 
 
-class TestIdentity:
-    def __init__(self) -> None:
-        self.authority = trustme.CA()
-        self.certificate = self.authority.issue_cert('test.com')
-
-    @cached_property
-    def _key(self) -> int:
-        return hash(self.certificate.private_key_and_cert_chain_pem.bytes())
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
-
-    def __hash__(self) -> int:
-        return hash(self._key)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, TestIdentity):
-            return self._key == other._key
-        return NotImplemented
-
-    def configure(self, context: SSL.Context) -> None:
-        context.set_verify(SSL.VERIFY_NONE)
-        self.authority.configure_trust(context)
-        self.certificate.configure_cert(context)
-
-
-def get_ssl_context(purpose: ssl.Purpose) -> ssl.SSLContext:
+def get_ssl_context(purpose: ssl.Purpose, identity: link.NodeIdentity) -> ssl.SSLContext:
     ctx = ssl.create_default_context(purpose)
+    ctx.verify_mode = ssl.CERT_REQUIRED
     ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    authority = trustme.CA()
-    certificate = authority.issue_cert('test.com')
-    authority.configure_trust(ctx)
-    certificate.configure_cert(ctx)
+    identity.configure(ctx)
     return ctx
 
 
@@ -110,13 +79,19 @@ def make_security_block() -> SecurityBlock:
 
 
 class TestClient:
-    def __init__(self, host: str, port: int = 10000) -> None:
+    def __init__(self, *, tls_user: str, dtls_user: str, host: str = 'localhost', port: int = 10000) -> None:
         self.host = host
         self.port = port
-        self.ssl_context = get_ssl_context(ssl.Purpose.SERVER_AUTH)
-        self.identity = TestIdentity()
+        self.tls_user = tls_user
+        self.dtls_user = dtls_user
+        self.tls_identity = link.NodeIdentity(certificate_file=f'certs/{tls_user}.crt', private_key_file=f'certs/{tls_user}.key', authority_file='certs/ca.crt')
+        self.dtls_identity = link.NodeIdentity(certificate_file=f'certs/{dtls_user}.crt', private_key_file=f'certs/{dtls_user}.key', authority_file='certs/ca.crt')
+        self.ssl_context = get_ssl_context(ssl.Purpose.SERVER_AUTH, self.tls_identity)
 
     async def run(self) -> None:
+        addr = address_repr(self.host)
+        port = self.port
+        print(f'connecting to {addr}:{port} w/ identity {self.tls_user}/{self.dtls_user}')
         try:
             async with asyncio.timeout(3):
                 reader, writer = await asyncio.open_connection(self.host, self.port, ssl=self.ssl_context, ssl_handshake_timeout=1)
@@ -127,26 +102,46 @@ class TestClient:
             print(f'error connecting: {e}')
             return
 
-        print(f'connected to {self.host}:{self.port}')
+        print(f'connected to {addr}:{port}')
         print('exchanging ICE parameters')
 
-        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self.identity)
+        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self.dtls_identity)
 
         await connection.prepare()
-        writer.write(encode_ice_peer(connection))
-        data = await reader.read(4096)
-        ice_peer = decode_ice_peer(data)
-        await writer.drain()
-        writer.close()
+
+        try:
+            writer.write(encode_ice_peer(connection))
+            await writer.drain()
+
+            data = await reader.read(4096)
+            if not data:
+                writer.close()
+                await writer.wait_closed()
+                print('connection lost')
+                return
+
+            ice_peer = decode_ice_peer(data)
+
+            writer.close()
+            await writer.wait_closed()
+        except (ConnectionError, ConnectionResetError, ConnectionAbortedError) as exc:
+            writer.close()
+            await writer.wait_closed()
+            print(exc)
+            return
 
         print('initiating ICE probing')
-        await connection.connect(ice_peer)
+        try:
+            await connection.connect(ice_peer)
+        except (ConnectionError, SSL.Error, TimeoutError) as exc:
+            print(f'ICE+DTLS connection failed: {exc!r}')
+            return
 
         print('ICE+DTLS connection established')
 
-        await self.exchange_messages(connection)
+        async with connection:
+            await self.exchange_messages(connection)
 
-        await connection.close()
         print('connection closed')
 
     async def exchange_messages(self, connection: link.DTLSEndpoint) -> None:
@@ -178,18 +173,22 @@ class TestClient:
 
 
 class TestServer:
-    def __init__(self, host: str, port: int = 10000) -> None:
+    def __init__(self, *, tls_user: str, dtls_user: str, host: str = '', port: int = 10000) -> None:
         self.host = host
         self.port = port
-        self.ssl_context = get_ssl_context(ssl.Purpose.CLIENT_AUTH)
-        self.identity = TestIdentity()
+        self.tls_user = tls_user
+        self.dtls_user = dtls_user
+        self.tls_identity = link.NodeIdentity(certificate_file=f'certs/{tls_user}.crt', private_key_file=f'certs/{tls_user}.key', authority_file='certs/ca.crt')
+        self.dtls_identity = link.NodeIdentity(certificate_file=f'certs/{dtls_user}.crt', private_key_file=f'certs/{dtls_user}.key', authority_file='certs/ca.crt')
+        self.ssl_context = get_ssl_context(ssl.Purpose.CLIENT_AUTH, self.tls_identity)
         # self.ssl_context.sni_callback = self.sni_callback  # noqa: ERA001
 
     async def run(self) -> None:
         server = await asyncio.start_server(self._handler, self.host, self.port, ssl=self.ssl_context)
 
+        addr = self.host or '*'
         port = server.sockets[0].getsockname()[1]
-        print(f'Serving on {self.host or "*"}:{port}')
+        print(f'Listening on {address_repr(addr)}:{port} w/ identity {self.tls_user}/{self.dtls_user}')
 
         async with server:
             try:
@@ -199,27 +198,47 @@ class TestServer:
                 raise
 
     async def _handler(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        host, port, *_ = writer.get_extra_info('peername')
-        print(f'connection from {host}:{port}')
+        addr, port, *_ = writer.get_extra_info('peername')
+        print(f'connection from {address_repr(addr)}:{port}')
         print('exchanging ICE parameters')
 
-        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self.identity)
+        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self.dtls_identity)
 
         await connection.prepare()
-        writer.write(encode_ice_peer(connection))
-        data = await reader.read(4096)
-        ice_peer = decode_ice_peer(data)
-        await writer.drain()
-        writer.close()
+
+        try:
+            writer.write(encode_ice_peer(connection))
+            await writer.drain()
+
+            data = await reader.read(4096)
+            if not data:
+                writer.close()
+                await writer.wait_closed()
+                print('connection lost')
+                return
+
+            ice_peer = decode_ice_peer(data)
+
+            writer.close()
+            await writer.wait_closed()
+        except (ConnectionError, ConnectionResetError, ConnectionAbortedError) as exc:
+            writer.close()
+            await writer.wait_closed()
+            print(exc)
+            return
 
         print('initiating ICE probing')
-        await connection.connect(ice_peer)
+        try:
+            await connection.connect(ice_peer)
+        except (ConnectionError, SSL.Error, TimeoutError) as exc:
+            print(f'ICE+DTLS connection failed: {exc!r}')
+            return
 
         print('ICE+DTLS connection established')
 
-        await self.exchange_messages(connection)
+        async with connection:
+            await self.exchange_messages(connection)
 
-        await connection.close()
         print('connection closed')
 
     async def exchange_messages(self, connection: link.DTLSEndpoint) -> None:
@@ -259,13 +278,17 @@ class TestServer:
 
 
 def run_client(args: Namespace) -> None:
-    client = TestClient(args.address)
+    client = TestClient(tls_user=args.tls_user or 'user-2', dtls_user=args.dtls_user or args.tls_user or 'user-2', host=args.address or 'localhost', port=args.port)
     asyncio.run(client.run(), debug=args.debug)
 
 
 def run_server(args: Namespace) -> None:
-    server = TestServer(args.address)
+    server = TestServer(tls_user=args.tls_user or 'user-1', dtls_user=args.dtls_user or args.tls_user or 'user-1', host=args.address, port=args.port)
     asyncio.run(server.run(), debug=args.debug)
+
+
+def address_repr(address: str) -> str:
+    return f'[{address}]' if ':' in address else address
 
 
 def address(value: str) -> str:
@@ -274,7 +297,11 @@ def address(value: str) -> str:
 
 def main() -> None:
     parser = ArgumentParser()
-    parser.add_argument('address', nargs='?', type=address, help='the address to connect to (run as server when not specified)')
+    parser.add_argument('tls_user', nargs='?', type=str, help='the user will determine the X509 certificate that will be used for TLS')
+    parser.add_argument('dtls_user', nargs='?', type=str, help='if specified, use a different user for DTLS, otherwise same as TLS')
+    parser.add_argument('-a', '--addr', dest='address', default='', help='Use this address for the TLS connection', metavar='ADDR')
+    parser.add_argument('-p', '--port', type=int, default=10000, help='Use this port for the TLS connection (default is 10000)')
+    parser.add_argument('-c', '--client', action='store_true', help='run as a client (by default it runs as a server)')
     parser.add_argument('-d', '--debug', action='store_true', help='turn on debugging messages')
     parser.add_argument('--version', action='version', version='%(prog)s 1.0.0')
 
@@ -284,10 +311,10 @@ def main() -> None:
     aioice.ice.logger.setLevel(logging.DEBUG if args.debug else logging.WARNING)  # shut aioice up
 
     try:
-        if not args.address:
-            run_server(args)
-        else:
+        if args.client:
             run_client(args)
+        else:
+            run_server(args)
     except KeyboardInterrupt:
         pass
 
