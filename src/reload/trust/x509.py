@@ -27,7 +27,7 @@ from reload.python import reprproxy
 
 from .private import KeyType, PrivateKey
 
-__all__ = 'CA', 'Subject', 'idna_decode', 'idna_encode', 'load_certificate', 'save_certificate'
+__all__ = 'CA', 'Subject', 'certificate_signing_request', 'idna_decode', 'idna_encode', 'load_certificate', 'save_certificate'
 
 
 type PublicKey = Ed25519PublicKey | Ed448PublicKey | EllipticCurvePublicKey
@@ -230,6 +230,11 @@ def idna_decode(string: str | bytes | bytearray, /) -> str:
 def idna_encode(string: str, /) -> str:
     """Turn a string into an ASCII representation by encoding it with IDNA"""
     return idna.encode(string, uts46=True).decode('ascii')
+
+
+def certificate_signing_request(private_key: PrivateKey, *, subject: Name | None = None) -> x509.CertificateSigningRequest:
+    """Create a certificate signing request for the given private key"""
+    return x509.CertificateSigningRequestBuilder(subject_name=subject or Subject().name).sign(private_key, algorithm=_hash_algorithm(private_key))
 
 
 def load_certificate(path: str | PathLike[str]) -> Certificate:
