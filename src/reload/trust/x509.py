@@ -27,7 +27,7 @@ from reload.python import reprproxy
 
 from .private import KeyType, PrivateKey
 
-__all__ = 'CA', 'Subject', 'load_certificate', 'save_certificate'
+__all__ = 'CA', 'Subject', 'idna_decode', 'idna_encode', 'load_certificate', 'save_certificate'
 
 
 type PublicKey = Ed25519PublicKey | Ed448PublicKey | EllipticCurvePublicKey
@@ -220,6 +220,11 @@ def _email_address_to_name(email: str) -> GeneralName:
         # NOTE @dan: Add support for unicode username (requires cryptography >= 45.0.0 w/ SMTP_UTF8_MAILBOX, but is not supported by RFC 6940)
         raise ValueError('Unicode characters in the username part of the email address are not supported')
     return x509.RFC822Name(f'{username}@{idna_encode(domain)}')
+
+
+def idna_decode(string: str | bytes | bytearray, /) -> str:
+    """Turn an IDNA encoded string back into it's unicode representation"""
+    return idna.decode(string, uts46=True)
 
 
 def idna_encode(string: str, /) -> str:
