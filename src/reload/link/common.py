@@ -74,7 +74,7 @@ class NodeCertificate:
             raise ValueError('The node certificate is missing the SubjectAlternativeName extension') from exc
         name_types = [type(name) for name in alternative_name.value]
         if set(name_types) != self._valid_name_types_ or name_types.count(x509.RFC822Name) != 1:
-            raise ValueError('The node certificate subject alternative name must contain only one or more reload URIs and one RFC822Name')
+            raise ValueError('The node certificate subject alternative name must contain exactly one or more reload URIs and one RFC822Name')
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.node_id.hex()}; {self.user}>'
