@@ -9,12 +9,14 @@ import asyncio
 import contextlib
 import ssl
 from collections.abc import Hashable
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from itertools import count
 from typing import Protocol, Self
 
+from cryptography import x509
+
 from reload import aio
-from reload.link.common import FramedMessageBuffer, OutgoingMessage, PendingMessage
+from reload.link.common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 from reload.messages import AckFrame, DataFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
 
@@ -47,6 +49,13 @@ class TLSEndpoint:
     @property
     def closed(self) -> bool:
         return self._closed
+
+    @cached_property
+    def peer_cert(self) -> NodeCertificate:
+        ssl_object: ssl.SSLObject = self._writer.get_extra_info('ssl_object')
+        cert_bytes = ssl_object.getpeercert(binary_form=True)
+        assert cert_bytes is not None  # noqa: S101 (used by type checkers)
+        return NodeCertificate(x509.load_der_x509_certificate(cert_bytes))
 
     @staticmethod
     @lru_cache

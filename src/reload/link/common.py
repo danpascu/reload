@@ -6,16 +6,20 @@ import asyncio
 import struct
 from collections.abc import Generator, Iterator
 from dataclasses import dataclass, field
+from functools import cached_property
 from os.path import expanduser, realpath
 from ssl import SSLContext
 from typing import Any, ClassVar, Self, assert_never
+from urllib.parse import urlparse
 
+from cryptography import x509
 from OpenSSL import SSL
 
 from reload.messages import AckFrame, FramedMessage
-from reload.messages.datamodel import FramedMessageType
+from reload.messages.datamodel import FramedMessageType, NodeID
+from reload.trust.x509 import idna_decode
 
-__all__ = 'NodeIdentity', 'OutgoingMessage', 'PendingMessage', 'FramedMessageBuffer'  # noqa: RUF022
+__all__ = 'NodeIdentity', 'NodeCertificate', 'OutgoingMessage', 'PendingMessage', 'FramedMessageBuffer'  # noqa: RUF022
 
 
 class PathAttribute:
@@ -54,6 +58,54 @@ class NodeIdentity:
                 context.use_privatekey_file(self.private_key_file)
             case _:
                 assert_never(context)
+
+
+@dataclass
+class NodeCertificate:
+    _certificate: x509.Certificate
+
+    _valid_name_types_: ClassVar[frozenset[type[x509.GeneralName]]] = frozenset({x509.UniformResourceIdentifier, x509.RFC822Name})
+
+    def __post_init__(self) -> None:
+        try:
+            alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        except x509.ExtensionNotFound as exc:
+            raise ValueError('The node certificate is missing the SubjectAlternativeName extension') from exc
+        name_types = [type(name) for name in alternative_name.value]
+        if set(name_types) != self._valid_name_types_ or name_types.count(x509.RFC822Name) != 1:
+            raise ValueError('The node certificate subject alternative name must contain only one or more reload URIs and one RFC822Name')
+
+    def __repr__(self) -> str:
+        return f'<{self.__class__.__qualname__}: {self.node_id.hex()}; {self.user}>'
+
+    @cached_property
+    def node_ids(self) -> list[NodeID]:
+        alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        uris = alternative_name.value.get_values_for_type(x509.UniformResourceIdentifier)
+        return [self._node_id_from_uri(uri) for uri in uris]
+
+    @cached_property
+    def node_id(self) -> NodeID:
+        return self.node_ids[0]
+
+    @cached_property
+    def user(self) -> str:
+        alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        rfc822name = alternative_name.value.get_values_for_type(x509.RFC822Name)[0]
+        if rfc822name.count('@') != 1:
+            raise ValueError(f'Invalid RFC822Name: {rfc822name!r}')
+        user, _, domain = rfc822name.partition('@')
+        return f'{user}@{idna_decode(domain)}'
+
+    @staticmethod
+    def _node_id_from_uri(uri: str) -> NodeID:
+        parsed_uri = urlparse(uri)
+        if parsed_uri.scheme != 'reload':
+            raise ValueError(f'Invalid scheme {parsed_uri.scheme!r}. Expected a reload URI.')
+        if parsed_uri.netloc.count('@') != 1:
+            raise ValueError(f'Invalid reload URI: {uri!r}')
+        user, _, _domain = parsed_uri.netloc.partition('@')
+        return NodeID.fromhex(user)
 
 
 @dataclass

@@ -9,7 +9,7 @@ import struct
 from collections import deque
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from itertools import count
 from typing import Any, ClassVar, Protocol, Self, overload
 
@@ -19,7 +19,7 @@ from cryptography.hazmat.bindings.openssl.binding import Binding
 from OpenSSL import SSL
 
 from reload import aio
-from reload.link.common import FramedMessageBuffer, OutgoingMessage, PendingMessage
+from reload.link.common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 from reload.messages import AckFrame, DataFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
 
@@ -295,6 +295,12 @@ class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
     @property
     def closed(self) -> bool:
         return self._closed
+
+    @cached_property
+    def peer_cert(self) -> NodeCertificate:
+        peer_cert = self.dtls.get_peer_certificate(as_cryptography=True)
+        assert peer_cert is not None  # noqa: S101 (used by type checkers)
+        return NodeCertificate(peer_cert)
 
     @staticmethod
     @lru_cache
