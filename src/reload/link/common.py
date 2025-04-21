@@ -56,6 +56,7 @@ class NodeIdentity:
                 context.load_verify_locations(self.authority_file)
                 context.use_certificate_chain_file(self.certificate_file)
                 context.use_privatekey_file(self.private_key_file)
+                context.check_privatekey()
             case _:
                 assert_never(context)
 
