@@ -4,44 +4,43 @@
 
 import asyncio
 import unittest
-from functools import cached_property
+from typing import ClassVar
 
-import trustme
+from OpenSSL.crypto import X509
 from OpenSSL.SSL import Context
 
-from reload import link
+from reload import link, trust
+from reload.messages.datamodel import NodeID
 
 
 class _TestIdentity:
-    def __init__(self, authority: trustme.CA) -> None:
-        self.authority = authority
-        self.certificate = authority.issue_cert('test.com')
+    overlay_domain: ClassVar[str] = 'test.link'
 
-    @cached_property
-    def _key(self) -> int:
-        return hash(self.certificate.private_key_and_cert_chain_pem.bytes())
-
-    def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
-
-    def __hash__(self) -> int:
-        return self._key
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, _TestIdentity):
-            return self._key == other._key
-        return NotImplemented
+    def __init__(self, authority: trust.CA) -> None:
+        node_id = NodeID.generate()
+        email = f'{node_id.hex()}@{self.overlay_domain}'
+        private_key = trust.KeyType.ECDSA.generate()
+        signing_request = trust.x509.certificate_signing_request(private_key)
+        certificate = authority.issue_node_certificate(signing_request, email=email, node_id=node_id, overlay_domain=self.overlay_domain)
+        self._authority = authority
+        self._private_key = private_key
+        self._certificate = certificate
 
     def configure(self, context: Context) -> None:
-        self.authority.configure_trust(context)
-        self.certificate.configure_cert(context)
+        store = context.get_cert_store()
+        assert store is not None
+        store.add_cert(X509.from_cryptography(self._authority.certificate))
+        context.use_certificate(self._certificate)
+        context.use_privatekey(self._private_key)
+        context.check_privatekey()
 
 
 class TestDTLS(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
         link.DTLSEndpoint.stun_server = None
-        self._authority = trustme.CA()
+        subject = trust.x509.Subject(organization='RELOAD', organizational_unit='Trust PKI', common_name=f'Test CA #{NodeID.generate().hex()[:16]}')
+        self._authority = trust.CA.new(subject=subject.name)
         self._client_identity = _TestIdentity(self._authority)
         self._server_identity = _TestIdentity(self._authority)
         self._client_conn = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self._client_identity)
