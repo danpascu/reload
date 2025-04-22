@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-__all__ = 'TLSEndpoint', 'get_tls_context'
+__all__ = 'TLSLink', 'get_tls_context'
 
 
 import asyncio
@@ -27,7 +27,7 @@ class X509IdentityProvider(Hashable, Protocol):
         ...
 
 
-class TLSEndpoint:
+class TLSLink:
     max_packet_size: ClassVar[int] = 16384
 
     def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, *, identity: X509IdentityProvider) -> None:

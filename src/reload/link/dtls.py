@@ -23,7 +23,7 @@ from reload.link.common import FramedMessageBuffer, NodeCertificate, OutgoingMes
 from reload.messages import AckFrame, DataFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
 
-__all__ = 'DTLSEndpoint', 'Purpose', 'ICEPeer', 'BadRecord'  # noqa: RUF022
+__all__ = 'DTLSLink', 'Purpose', 'ICEPeer', 'BadRecord'  # noqa: RUF022
 
 
 binding = Binding()
@@ -249,7 +249,7 @@ class X509IdentityProvider(Hashable, Protocol):
         ...
 
 
-class DTLSEndpoint:  # NOTE @dan: rename to DTLSLink?
+class DTLSLink:
     stun_server: tuple[str, int] | None = 'stun.antisip.com', 3478
 
     ice_connect_timeout: int = 30   # how long to wait for ice to establish connection
