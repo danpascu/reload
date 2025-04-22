@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-__all__ = 'TLSEndpoint',  # noqa: COM818
+__all__ = 'TLSEndpoint', 'get_tls_context'
 
 
 import asyncio
@@ -11,7 +11,7 @@ import ssl
 from collections.abc import Hashable
 from functools import cached_property, lru_cache
 from itertools import count
-from typing import Protocol, Self
+from typing import ClassVar, Protocol, Self
 
 from cryptography import x509
 
@@ -28,9 +28,7 @@ class X509IdentityProvider(Hashable, Protocol):
 
 
 class TLSEndpoint:
-    max_packet_size: int = 16384
-
-    tls_close_timeout: int = 3  # how long to wait for confirmation on TLS shutdown
+    max_packet_size: ClassVar[int] = 16384
 
     def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, *, identity: X509IdentityProvider) -> None:
         self.identity = identity
@@ -56,19 +54,6 @@ class TLSEndpoint:
         cert_bytes = ssl_object.getpeercert(binary_form=True)
         assert cert_bytes is not None  # noqa: S101 (used by type checkers)
         return NodeCertificate(x509.load_der_x509_certificate(cert_bytes))
-
-    @staticmethod
-    @lru_cache
-    def get_tls_context(purpose: ssl.Purpose, identity: X509IdentityProvider) -> ssl.SSLContext:
-        context = ssl.create_default_context(purpose)
-        context.verify_mode = ssl.CERT_REQUIRED
-        context.check_hostname = False
-        identity.configure(context)
-        return context
-
-    @classmethod
-    async def connect(cls, address: str, port: int, identity: X509IdentityProvider) -> Self:
-        ...
 
     async def close(self) -> None:
         if self._closed:
@@ -254,3 +239,12 @@ class TLSEndpoint:
             return await self.receive()
         except aio.ClosedResourceError as exc:
             raise StopAsyncIteration from exc
+
+
+@lru_cache
+def get_tls_context(purpose: ssl.Purpose, identity: X509IdentityProvider) -> ssl.SSLContext:
+    context = ssl.create_default_context(purpose)
+    context.verify_mode = ssl.CERT_REQUIRED
+    context.check_hostname = False
+    identity.configure(context)
+    return context
