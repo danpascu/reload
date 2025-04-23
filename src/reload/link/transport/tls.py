@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-__all__ = 'TLSLink', 'get_tls_context'
+__all__ = 'TLSLink',  # noqa: COM818
 
 
 import asyncio
@@ -30,6 +30,15 @@ class X509IdentityProvider(Hashable, Protocol):
 
 class TLSLink:
     max_packet_size: ClassVar[int] = 16384
+
+    @staticmethod
+    @lru_cache
+    def get_context(purpose: ssl.Purpose, identity: X509IdentityProvider) -> ssl.SSLContext:
+        context = ssl.create_default_context(purpose)
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = False
+        identity.configure(context)
+        return context
 
     def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, *, identity: X509IdentityProvider) -> None:
         self.identity = identity
@@ -240,12 +249,3 @@ class TLSLink:
             return await self.receive()
         except aio.ClosedResourceError as exc:
             raise StopAsyncIteration from exc
-
-
-@lru_cache
-def get_tls_context(purpose: ssl.Purpose, identity: X509IdentityProvider) -> ssl.SSLContext:
-    context = ssl.create_default_context(purpose)
-    context.verify_mode = ssl.CERT_REQUIRED
-    context.check_hostname = False
-    identity.configure(context)
-    return context
