@@ -9,7 +9,8 @@ from typing import ClassVar
 from OpenSSL.crypto import X509
 from OpenSSL.SSL import Context
 
-from reload import link, trust
+from reload import trust
+from reload.link.transport import dtls
 from reload.messages.datamodel import NodeID
 
 
@@ -38,19 +39,19 @@ class _TestIdentity:
 class TestDTLS(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
-        link.DTLSLink.stun_server = None
+        dtls.DTLSLink.stun_server = None
         subject = trust.x509.Subject(organization='RELOAD', organizational_unit='Trust PKI', common_name=f'Test CA #{NodeID.generate().hex()[:16]}')
         self._authority = trust.CA.new(subject=subject.name)
         self._client_identity = _TestIdentity(self._authority)
         self._server_identity = _TestIdentity(self._authority)
-        self._client_conn = link.DTLSLink(purpose=link.Purpose.AttachResponse, identity=self._client_identity)
-        self._server_conn = link.DTLSLink(purpose=link.Purpose.AttachRequest, identity=self._server_identity)
+        self._client_conn = dtls.DTLSLink(purpose=dtls.Purpose.AttachResponse, identity=self._client_identity)
+        self._server_conn = dtls.DTLSLink(purpose=dtls.Purpose.AttachRequest, identity=self._server_identity)
 
     async def asyncSetUp(self) -> None:
         await self._client_conn.prepare()
         await self._server_conn.prepare()
-        client_peer = link.ICEPeer(self._client_conn.ice.local_username, self._client_conn.ice.local_password, self._client_conn.ice.local_candidates)
-        server_peer = link.ICEPeer(self._server_conn.ice.local_username, self._server_conn.ice.local_password, self._server_conn.ice.local_candidates)
+        client_peer = dtls.ICEPeer(self._client_conn.ice.local_username, self._client_conn.ice.local_password, self._client_conn.ice.local_candidates)
+        server_peer = dtls.ICEPeer(self._server_conn.ice.local_username, self._server_conn.ice.local_password, self._server_conn.ice.local_candidates)
         client_task = asyncio.create_task(self._connect_peer(self._client_conn, server_peer))
         server_task = asyncio.create_task(self._connect_peer(self._server_conn, client_peer))
         await asyncio.gather(client_task, server_task)
@@ -58,11 +59,11 @@ class TestDTLS(unittest.IsolatedAsyncioTestCase):
         await self._server_conn.send(b'server message')
 
     @staticmethod
-    async def _connect_peer(conn: link.DTLSLink, ice_peer: link.ICEPeer) -> None:
+    async def _connect_peer(conn: dtls.DTLSLink, ice_peer: dtls.ICEPeer) -> None:
         await conn.connect(ice_peer)
 
     @staticmethod
-    async def _disconnect_peer(conn: link.DTLSLink) -> None:
+    async def _disconnect_peer(conn: dtls.DTLSLink) -> None:
         await conn.close()
 
     async def test_dtls(self) -> None:

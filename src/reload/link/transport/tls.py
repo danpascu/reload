@@ -16,9 +16,10 @@ from typing import ClassVar, Protocol, Self
 from cryptography import x509
 
 from reload import aio
-from reload.link.common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 from reload.messages import AckFrame, DataFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
+
+from .common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 
 
 class X509IdentityProvider(Hashable, Protocol):

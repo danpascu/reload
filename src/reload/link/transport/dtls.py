@@ -19,9 +19,10 @@ from cryptography.hazmat.bindings.openssl.binding import Binding
 from OpenSSL import SSL
 
 from reload import aio
-from reload.link.common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 from reload.messages import AckFrame, DataFrame, FramedMessage
 from reload.messages.datamodel import FramedMessageType
+
+from .common import FramedMessageBuffer, NodeCertificate, OutgoingMessage, PendingMessage
 
 __all__ = 'DTLSLink', 'Purpose', 'ICEPeer', 'BadRecord'  # noqa: RUF022
 
