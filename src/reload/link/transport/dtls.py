@@ -264,7 +264,7 @@ class DTLSLink:
         ice_controlling = purpose is Purpose.AttachRequest
         self.identity = identity
         self.ice = ICEConnection(ice_controlling=ice_controlling, stun_server=self.stun_server)
-        self.dtls = DTLSConnection(self.get_dtls_context(identity))
+        self.dtls = DTLSConnection(self.get_context(identity))
         self.mtu = mtu
         self._purpose = purpose
         self._recv_channel = aio.Channel[bytes](10)
@@ -305,7 +305,7 @@ class DTLSLink:
 
     @staticmethod
     @lru_cache
-    def get_dtls_context(identity: X509IdentityProvider) -> SSL.Context:
+    def get_context(identity: X509IdentityProvider) -> SSL.Context:
         context = SSL.Context(SSL.DTLS_METHOD)
         context.set_options(SSL.OP_NO_QUERY_MTU | SSL_OP_NO_RENEGOTIATION)
         context.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT)
