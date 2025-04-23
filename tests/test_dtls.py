@@ -38,13 +38,13 @@ class _TestIdentity:
 class TestDTLS(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:
-        link.DTLSEndpoint.stun_server = None
+        link.DTLSLink.stun_server = None
         subject = trust.x509.Subject(organization='RELOAD', organizational_unit='Trust PKI', common_name=f'Test CA #{NodeID.generate().hex()[:16]}')
         self._authority = trust.CA.new(subject=subject.name)
         self._client_identity = _TestIdentity(self._authority)
         self._server_identity = _TestIdentity(self._authority)
-        self._client_conn = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self._client_identity)
-        self._server_conn = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self._server_identity)
+        self._client_conn = link.DTLSLink(purpose=link.Purpose.AttachResponse, identity=self._client_identity)
+        self._server_conn = link.DTLSLink(purpose=link.Purpose.AttachRequest, identity=self._server_identity)
 
     async def asyncSetUp(self) -> None:
         await self._client_conn.prepare()
@@ -58,11 +58,11 @@ class TestDTLS(unittest.IsolatedAsyncioTestCase):
         await self._server_conn.send(b'server message')
 
     @staticmethod
-    async def _connect_peer(conn: link.DTLSEndpoint, ice_peer: link.ICEPeer) -> None:
+    async def _connect_peer(conn: link.DTLSLink, ice_peer: link.ICEPeer) -> None:
         await conn.connect(ice_peer)
 
     @staticmethod
-    async def _disconnect_peer(conn: link.DTLSEndpoint) -> None:
+    async def _disconnect_peer(conn: link.DTLSLink) -> None:
         await conn.close()
 
     async def test_dtls(self) -> None:
