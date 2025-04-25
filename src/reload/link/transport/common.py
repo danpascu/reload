@@ -21,13 +21,13 @@ __all__ = 'NodeCertificate', 'OutgoingMessage', 'PendingMessage', 'FramedMessage
 
 @dataclass
 class NodeCertificate:
-    _certificate: x509.Certificate
+    certificate: x509.Certificate
 
     _valid_name_types_: ClassVar[frozenset[type[x509.GeneralName]]] = frozenset({x509.UniformResourceIdentifier, x509.RFC822Name})
 
     def __post_init__(self) -> None:
         try:
-            alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+            alternative_name = self.certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         except x509.ExtensionNotFound as exc:
             raise ValueError('The node certificate is missing the SubjectAlternativeName extension') from exc
         name_types = [type(name) for name in alternative_name.value]
@@ -39,7 +39,7 @@ class NodeCertificate:
 
     @cached_property
     def node_ids(self) -> list[NodeID]:
-        alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        alternative_name = self.certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         uris = alternative_name.value.get_values_for_type(x509.UniformResourceIdentifier)
         return [self._node_id_from_uri(uri) for uri in uris]
 
@@ -49,7 +49,7 @@ class NodeCertificate:
 
     @cached_property
     def user(self) -> str:
-        alternative_name = self._certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+        alternative_name = self.certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         rfc822name = alternative_name.value.get_values_for_type(x509.RFC822Name)[0]
         if rfc822name.count('@') != 1:
             raise ValueError(f'Invalid RFC822Name: {rfc822name!r}')
