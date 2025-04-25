@@ -3,11 +3,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 from dataclasses import dataclass
+from functools import cached_property
 from os.path import expanduser, realpath
 from ssl import SSLContext
 from typing import assert_never
 
+from cryptography.x509 import Certificate
 from OpenSSL import SSL
+
+from reload.trust.private import PrivateKey, load_private_key
+from reload.trust.x509 import load_certificate
 
 __all__ = 'NodeIdentity',  # noqa: COM818
 
@@ -35,6 +40,18 @@ class NodeIdentity:
     certificate_file: PathAttribute = PathAttribute()
     private_key_file: PathAttribute = PathAttribute()
     authority_file:   PathAttribute = PathAttribute()
+
+    @cached_property
+    def certificate(self) -> Certificate:
+        return load_certificate(self.certificate_file)
+
+    @cached_property
+    def private_key(self) -> PrivateKey:
+        return load_private_key(self.private_key_file)
+
+    @cached_property
+    def authority(self) -> Certificate:
+        return load_certificate(self.authority_file)
 
     def configure(self, context: SSLContext | SSL.Context) -> None:
         """Configure the SSL context with this object's certificate and authority files"""
