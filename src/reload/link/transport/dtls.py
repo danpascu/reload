@@ -383,6 +383,7 @@ class DTLSLink:
 
             # Handshake done successfully
             self._connected = True
+            self._done = asyncio.Future()
             self._control_task = asyncio.create_task(self._link_manager())
 
     async def close(self) -> None:
@@ -417,7 +418,6 @@ class DTLSLink:
         await message
 
     async def _link_manager(self) -> None:
-        self._done = asyncio.Future()
         try:
             async with asyncio.TaskGroup() as group:
                 receiver_task = group.create_task(self._receiver_loop(), name=f'DTLS Link {self!r} receiver')  # NOTE: change self to nodeid
