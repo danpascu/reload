@@ -88,7 +88,6 @@ class TLSLink:
         await message
 
     async def _link_manager(self) -> None:
-        self._done = asyncio.Future()
         try:
             async with asyncio.TaskGroup() as group:
                 receiver_task = group.create_task(self._receiver_loop(), name=f'TLS Link {self!r} receiver')  # NOTE: change self to nodeid
