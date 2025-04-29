@@ -931,7 +931,7 @@ class DestinationType(Enum):
 
 
 class ErrorCode(Enum, size=2):
-    # 0x8000 .. 0xFFFE - Reserved
+    # 0x8000 .. 0xFFFF - Reserved
 
     invalid = 0
     unassigned = 1
