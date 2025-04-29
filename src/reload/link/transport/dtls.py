@@ -310,7 +310,6 @@ class DTLSLink:
         context.set_options(SSL.OP_NO_QUERY_MTU | SSL_OP_NO_RENEGOTIATION)
         context.set_verify(SSL.VERIFY_PEER | SSL.VERIFY_FAIL_IF_NO_PEER_CERT)
         identity.configure(context)
-        context.check_privatekey()
         return context
 
     async def prepare(self) -> None:
