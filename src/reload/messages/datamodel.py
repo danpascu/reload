@@ -5,6 +5,7 @@
 import enum
 import hashlib
 from collections.abc import Buffer, Iterable, MutableMapping
+from functools import cached_property
 from io import BytesIO
 from ipaddress import IPv4Address, IPv6Address
 from secrets import token_bytes as secure_random_bytes
@@ -1200,7 +1201,7 @@ class NodeID(FixedSize, size=16):
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.hex()}>'
 
-    @property
+    @cached_property
     def value(self) -> int:
         return int.from_bytes(self, byteorder='big')
 
@@ -1213,7 +1214,7 @@ class OpaqueID(Opaque, maxsize=255):
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.hex()}>'
 
-    @property
+    @cached_property
     def value(self) -> int:
         return int.from_bytes(self, byteorder='big')
 
