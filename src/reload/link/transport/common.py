@@ -5,7 +5,7 @@
 import asyncio
 import struct
 from collections.abc import Generator, Iterator
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from functools import cached_property
 from typing import Any, ClassVar, Self
 from urllib.parse import urlparse
@@ -22,10 +22,11 @@ __all__ = 'NodeCertificate', 'OutgoingMessage', 'PendingMessage', 'FramedMessage
 @dataclass
 class NodeCertificate:
     certificate: x509.Certificate
+    node_id_idx: InitVar[int] = field(default=0, kw_only=True)
 
     _valid_name_types_: ClassVar[frozenset[type[x509.GeneralName]]] = frozenset({x509.UniformResourceIdentifier, x509.RFC822Name})
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, node_id_idx: int) -> None:
         try:
             alternative_name = self.certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         except x509.ExtensionNotFound as exc:
@@ -33,19 +34,26 @@ class NodeCertificate:
         name_types = [type(name) for name in alternative_name.value]
         if set(name_types) != self._valid_name_types_ or name_types.count(x509.RFC822Name) != 1:
             raise ValueError('The node certificate subject alternative name must contain exactly one or more reload URIs and one RFC822Name')
+        if node_id_idx < 0 or node_id_idx >= len(name_types) - 1:
+            raise ValueError('The index into the certificate node_id list is out of bounds')
+        self._node_id_idx = node_id_idx
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__qualname__}: {self.node_id.hex()}; {self.user}>'
 
     @cached_property
-    def node_ids(self) -> list[NodeID]:
+    def node_id_list(self) -> list[NodeID]:
         alternative_name = self.certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
         uris = alternative_name.value.get_values_for_type(x509.UniformResourceIdentifier)
         return [self._node_id_from_uri(uri) for uri in uris]
 
     @cached_property
+    def node_ids(self) -> set[NodeID]:
+        return set(self.node_id_list)
+
+    @cached_property
     def node_id(self) -> NodeID:
-        return self.node_ids[0]
+        return self.node_id_list[self._node_id_idx]
 
     @cached_property
     def user(self) -> str:
