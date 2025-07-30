@@ -239,9 +239,12 @@ class weakobjectmap[K, V](MutableMapping[K, V]):  # noqa: PLR0904
     def get(self, key: K, /) -> V | None: ...
 
     @overload
+    def get(self, key: K, /, default: V) -> V: ...
+
+    @overload
     def get[T](self, key: K, /, default: T) -> V | T: ...
 
-    def get[T](self, key: K, /, default: T | None = None) -> V | T | None:
+    def get[T](self, key: K, /, default: V | T = None) -> V | T:
         return self._data_.get(id(key), default)
 
     @overload
