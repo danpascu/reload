@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# ruff: noqa: N801
+
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, MutableMapping, Sized
 from collections.abc import Set as AbstractSet
 from copy import copy, deepcopy
@@ -15,8 +17,6 @@ from .typing import SupportsKeysAndGetItem
 
 __all__ = 'defaultweakobjectmap', 'weakobjectmap'
 
-
-# ruff: noqa: N801
 
 type DefaultFactory[T] = Callable[[], T]
 

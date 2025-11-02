@@ -4,6 +4,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# ruff: noqa: T201
+
 import asyncio
 import ipaddress
 import json
@@ -34,8 +36,6 @@ from reload.messages import (
     SignerIdentity,
 )
 from reload.messages.datamodel import DestinationType, ErrorCode, HashAlgorithm, ResourceID, SignatureAlgorithm, SignerIdentityType, UInt64
-
-# ruff: noqa: T201
 
 # dummy overlay configuration for testing
 configuration = Configuration(instance_name='test.link', sequence=17, initial_ttl=100)  # pyright: ignore[reportCallIssue]
