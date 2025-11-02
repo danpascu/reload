@@ -1261,7 +1261,7 @@ class List[T: DataWireProtocol](list[T]):
         if not isinstance(buffer, BytesIO):
             buffer = BytesIO(buffer)
         buffer_length = len(buffer.getvalue())
-        items = []
+        items: list[T] = []
         while buffer.tell() < buffer_length:
             item = cls._type_.from_wire(buffer)
             items.append(item)
