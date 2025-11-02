@@ -21,6 +21,7 @@ from OpenSSL import SSL
 
 from reload import link
 from reload.configuration import Configuration
+from reload.link.transport import dtls
 from reload.messages import (
     Destination,
     Empty,
@@ -49,16 +50,16 @@ def get_ssl_context(purpose: ssl.Purpose, identity: link.NodeIdentity) -> ssl.SS
     return ctx
 
 
-def encode_ice_peer(connection: link.DTLSEndpoint) -> bytes:
+def encode_ice_peer(connection: dtls.DTLSLink) -> bytes:
     ice = connection.ice
     candidates = [candidate.to_sdp() for candidate in ice.local_candidates]
     return json.dumps({'username': ice.local_username, 'password': ice.local_password, 'candidates': candidates}).encode()
 
 
-def decode_ice_peer(data: bytes) -> link.ICEPeer:
+def decode_ice_peer(data: bytes) -> dtls.ICEPeer:
     json_data = json.loads(data)
     json_data['candidates'] = [aioice.candidate.Candidate.from_sdp(line) for line in json_data['candidates']]
-    return link.ICEPeer(**json_data)
+    return dtls.ICEPeer(**json_data)
 
 
 def decode_request(message: bytes) -> tuple[ForwardingHeader, MessageContents, SecurityBlock]:
@@ -105,7 +106,7 @@ class TestClient:
         print(f'connected to {addr}:{port}')
         print('exchanging ICE parameters')
 
-        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachRequest, identity=self.dtls_identity)
+        connection = dtls.DTLSLink(purpose=dtls.Purpose.AttachRequest, identity=self.dtls_identity)
 
         await connection.prepare()
 
@@ -144,7 +145,7 @@ class TestClient:
 
         print('connection closed')
 
-    async def exchange_messages(self, connection: link.DTLSEndpoint) -> None:
+    async def exchange_messages(self, connection: dtls.DTLSLink) -> None:
         message = self.make_ping_request()
         print(f'sending Ping request {message!r}')
         await connection.send(message)
@@ -202,7 +203,7 @@ class TestServer:
         print(f'connection from {address_repr(addr)}:{port}')
         print('exchanging ICE parameters')
 
-        connection = link.DTLSEndpoint(purpose=link.Purpose.AttachResponse, identity=self.dtls_identity)
+        connection = dtls.DTLSLink(purpose=dtls.Purpose.AttachResponse, identity=self.dtls_identity)
 
         await connection.prepare()
 
@@ -241,7 +242,7 @@ class TestServer:
 
         print('connection closed')
 
-    async def exchange_messages(self, connection: link.DTLSEndpoint) -> None:
+    async def exchange_messages(self, connection: dtls.DTLSLink) -> None:
         async for message in connection:
             print(f'received message: {message!r}')
             response = self.process_request(message)
