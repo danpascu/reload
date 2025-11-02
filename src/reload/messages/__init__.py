@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
+# ruff: noqa: A003
+
 """
 6.3. Message Structure
 
